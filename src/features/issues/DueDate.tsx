@@ -98,9 +98,13 @@ export function DueChip({ day, closed, className }: { day: string; closed?: bool
   )
 }
 
-export const EstimateIcon = ({ className }: { className?: string }) => <Triangle className={cn('size-3.5 shrink-0 text-muted-foreground', className)} />
+export function EstimateIcon({ className }: { className?: string }) {
+  return <Triangle className={cn('size-3.5 shrink-0 text-muted-foreground', className)} />
+}
 
-export const estimateName = (points: number) => `${points} ${points === 1 ? 'point' : 'points'}`
+export function estimateName(points: number): string {
+  return `${points} ${points === 1 ? 'point' : 'points'}`
+}
 
 /** the estimate choices; an imported estimate outside the usual ones is offered too, so it shows as picked */
 export function estimateItems(current?: number | null): PickerItem<number | null>[] {
