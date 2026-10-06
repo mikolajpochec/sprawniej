@@ -24,11 +24,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { PriorityIcon, StatusIcon } from './icons'
 import { Comments } from './Comments'
-import { DueChip, DueDatePicker, EstimateIcon, estimateItems, estimateName } from './DueDate'
-import { shortDate } from './format'
+import { DueChip, DueDatePicker, EstimateIcon } from './DueDate'
+import { estimateName, shortDate } from './format'
 import { SubIssues } from './SubIssues'
 import { TitleField } from './TitleField'
-import { priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
+import { estimateItems, priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
 
 function Property({ label, children }: { label: string; children: ReactNode }) {
   return (

@@ -9,7 +9,9 @@ import { PersonAvatar } from '@/components/Avatar'
 import type { PickerItem } from '@/components/Picker'
 import { issueRef, useData } from '@/data/store'
 import type { Issue } from '@/model/schema'
-import { PRIORITY_ORDER, PRIORITY_NAMES, STATUSES, type Priority, type StatusId } from '@/model/status'
+import { ESTIMATES, PRIORITY_ORDER, PRIORITY_NAMES, STATUSES, type Priority, type StatusId } from '@/model/status'
+import { EstimateIcon } from './DueDate'
+import { estimateName } from './format'
 import { PriorityIcon, StatusIcon } from './icons'
 
 export const statusItems: PickerItem<StatusId>[] = STATUSES.map((s) => ({ value: s.id, label: s.name, icon: <StatusIcon status={s.id} /> }))
@@ -84,4 +86,13 @@ export function useParentItems(issue?: Pick<Issue, 'id' | 'team'>, team?: string
         .map((i) => ({ value: i.id as string | null, label: i.title, hint: issueRef(i), keywords: [issueRef(i)], icon: <StatusIcon status={i.status} /> })),
     ]
   }, [issues, issue, team])
+}
+
+/** the estimate choices; an imported estimate outside the usual ones is offered too, so it shows as picked */
+export function estimateItems(current?: number | null): PickerItem<number | null>[] {
+  const values = [...new Set([...ESTIMATES, ...(current != null ? [current] : [])])].sort((a, b) => a - b)
+  return [
+    { value: null, label: 'No estimate', icon: <EstimateIcon className="opacity-50" /> },
+    ...values.map((p) => ({ value: p as number | null, label: estimateName(p), keywords: [String(p)], icon: <EstimateIcon /> })),
+  ]
 }

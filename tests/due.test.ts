@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { dayName, dueTone, estimateItems } from '@/features/issues/DueDate'
+import { dayName, dueTone } from '@/features/issues/format'
+import { estimateItems } from '@/features/issues/pickers'
 
 describe('due dates', () => {
   test('names and tones', () => {

@@ -13,8 +13,7 @@ import { cn } from '@/lib/utils'
 import type { Issue } from '@/model/schema'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/ui/command'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog'
-import { estimateItems } from './DueDate'
-import { priorityItems, statusItems, useLabelItems, usePeopleItems } from './pickers'
+import { estimateItems, priorityItems, statusItems, useLabelItems, usePeopleItems } from './pickers'
 
 const TITLES: Record<QuickField, string> = { status: 'Change status', priority: 'Change priority', assignee: 'Assign to', labels: 'Change labels', estimate: 'Set estimate' }
 

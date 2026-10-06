@@ -17,8 +17,9 @@ import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog'
 import { useComposer } from './composer'
 import { PriorityIcon, StatusIcon } from './icons'
-import { DueDatePicker, EstimateIcon, dayName, estimateItems, estimateName } from './DueDate'
-import { priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
+import { DueDatePicker, EstimateIcon } from './DueDate'
+import { dayName, estimateName } from './format'
+import { estimateItems, priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
 
 const chip =
   'inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm text-foreground/90 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-accent/60'

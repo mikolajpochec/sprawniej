@@ -4,34 +4,10 @@
  */
 import { useState, type ReactNode } from 'react'
 import { CalendarClock, Triangle, X } from 'lucide-react'
-import type { PickerItem } from '@/components/Picker'
 import { cn } from '@/lib/utils'
-import { ESTIMATES } from '@/model/status'
 import { Calendar } from '@/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover'
-import { shortDate } from './format'
-
-/** a Date as a plain day in this browser's time zone */
-export function toDay(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-const fromDay = (day: string) => new Date(`${day}T00:00`)
-const addDays = (n: number, from = new Date()) => toDay(new Date(from.getFullYear(), from.getMonth(), from.getDate() + n))
-
-/** "Today", "Tomorrow", "Yesterday", else "Oct 31" */
-export function dayName(day: string, today = toDay(new Date())): string {
-  const now = fromDay(today)
-  if (day === today) return 'Today'
-  if (day === addDays(1, now)) return 'Tomorrow'
-  if (day === addDays(-1, now)) return 'Yesterday'
-  return shortDate(day, now)
-}
-
-/** overdue (red), due within two days (amber), or later */
-export function dueTone(day: string, today = toDay(new Date())): 'overdue' | 'soon' | 'later' {
-  if (day < today) return 'overdue'
-  return day <= addDays(2, fromDay(today)) ? 'soon' : 'later'
-}
+import { addDays, dayName, dueTone, estimateName, fromDay, shortDate, toDay } from './format'
 
 /** the next Monday, or the one after if today is Monday */
 function nextMonday(): string {
@@ -100,19 +76,6 @@ export function DueChip({ day, closed, className }: { day: string; closed?: bool
 
 export function EstimateIcon({ className }: { className?: string }) {
   return <Triangle className={cn('size-3.5 shrink-0 text-muted-foreground', className)} />
-}
-
-export function estimateName(points: number): string {
-  return `${points} ${points === 1 ? 'point' : 'points'}`
-}
-
-/** the estimate choices; an imported estimate outside the usual ones is offered too, so it shows as picked */
-export function estimateItems(current?: number | null): PickerItem<number | null>[] {
-  const values = [...new Set([...ESTIMATES, ...(current != null ? [current] : [])])].sort((a, b) => a - b)
-  return [
-    { value: null, label: 'No estimate', icon: <EstimateIcon className="opacity-50" /> },
-    ...values.map((p) => ({ value: p as number | null, label: estimateName(p), keywords: [String(p)], icon: <EstimateIcon /> })),
-  ]
 }
 
 export function EstimateChip({ points, className }: { points: number; className?: string }) {
