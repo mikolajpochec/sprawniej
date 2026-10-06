@@ -12,8 +12,11 @@ import { classify, joinFrontMatter, splitFrontMatter } from '@/data/files'
 
 export interface MergeResult {
   text: string | null
-  /** both sides changed the same thing and ours was kept */
-  conflict: boolean
+  /**
+   * Both sides rewrote the same lines of a description or comment, and ours was kept. The only clash worth a quiet
+   * notice: everything else (the same field changed twice) simply goes to the later save, like any app would.
+   */
+  lostLines: boolean
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
@@ -21,7 +24,10 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 const isPrimList = (v: unknown): v is (string | number | null)[] => Array.isArray(v) && v.every((x) => x === null || typeof x !== 'object')
 
 interface Ctx {
+  /** the same field changed on both sides (ours kept) */
   conflicts: number
+  /** the same lines of text changed on both sides (ours kept) */
+  textConflicts?: number
 }
 
 export function mergeValue(base: unknown, ours: unknown, theirs: unknown, ctx: Ctx = { conflicts: 0 }): unknown {
@@ -58,7 +64,7 @@ export function mergeText(base: string, ours: string, theirs: string, ctx: Ctx =
   for (const region of diff3Merge(lines(ours), lines(base), lines(theirs))) {
     if (region.ok) out.push(...region.ok)
     else if (region.conflict) {
-      ctx.conflicts++
+      ctx.textConflicts = (ctx.textConflicts ?? 0) + 1
       out.push(...region.conflict.a)
     }
   }
@@ -77,28 +83,120 @@ function mergeFrontMatterFile(base: string | null, ours: string, theirs: string,
     if (newest) of.updatedAt = tf.updatedAt = newest
   }
   const fields = mergeValue(b?.fields, o.fields, t.fields, ctx) as Record<string, unknown>
-  const body = b ? mergeText(b.body, o.body, t.body, ctx) : o.body === t.body ? o.body : (ctx.conflicts++, o.body)
+  let body = o.body
+  if (b) body = mergeText(b.body, o.body, t.body, ctx)
+  else if (o.body !== t.body) ctx.textConflicts = (ctx.textConflicts ?? 0) + 1
   return joinFrontMatter(fields, body)
 }
 
 export function mergeFile(path: string, base: string | null, ours: string | null, theirs: string | null): MergeResult {
-  if (ours === theirs) return { text: ours, conflict: false }
-  if (ours === base) return { text: theirs, conflict: false }
-  if (theirs === base) return { text: ours, conflict: false }
+  if (ours === theirs) return { text: ours, lostLines: false }
+  if (ours === base) return { text: theirs, lostLines: false }
+  if (theirs === base) return { text: ours, lostLines: false }
   // one side deleted, the other changed it: keep the changed one
-  if (ours === null) return { text: theirs, conflict: false }
-  if (theirs === null) return { text: ours, conflict: false }
+  if (ours === null) return { text: theirs, lostLines: false }
+  if (theirs === null) return { text: ours, lostLines: false }
 
   const ctx: Ctx = { conflicts: 0 }
   const kind = classify(path)?.kind
   try {
-    if (kind === 'issue' || kind === 'comment') return { text: mergeFrontMatterFile(base, ours, theirs, ctx, kind === 'issue'), conflict: ctx.conflicts > 0 }
+    if (kind === 'issue' || kind === 'comment') {
+      const text = mergeFrontMatterFile(base, ours, theirs, ctx, kind === 'issue')
+      return { text, lostLines: (ctx.textConflicts ?? 0) > 0 }
+    }
     if (path.endsWith('.json')) {
       const v = mergeValue(base === null ? undefined : JSON.parse(base), JSON.parse(ours), JSON.parse(theirs), ctx)
-      return { text: `${JSON.stringify(v, null, 2)}\n`, conflict: ctx.conflicts > 0 }
+      return { text: `${JSON.stringify(v, null, 2)}\n`, lostLines: false }
     }
   } catch {
     /* a file we can't read: fall through to "ours wins" */
   }
-  return { text: ours, conflict: true }
+  return { text: ours, lostLines: false }
+}
+
+// ---------- everything a pull brings in ----------
+
+/** issues and comments keep their id when they move to another team (the folder changes, the file name doesn't) */
+function identity(path: string): string | null {
+  const c = classify(path)
+  if (c?.kind === 'issue') return `issue:${c.parts[1]}`
+  if (c?.kind === 'comment') return `comment:${c.parts[2]}`
+  return null
+}
+
+export interface IncomingMerge {
+  /** what pending becomes for each touched path: text/null to keep pending, undefined to drop it */
+  pending: Map<string, string | null | undefined>
+  /** what the screen shows for each touched path */
+  shown: Map<string, string | null>
+  /** paths where both sides rewrote the same lines (ours kept) */
+  lostLines: string[]
+}
+
+/**
+ * Merge a teammate's saved changes (`incoming`, null = deleted) into our unsaved ones (`pending`), given what both
+ * started from (`base`). Pure, so every rule is unit-tested (tests/merge.test.ts).
+ *
+ * Besides the per-file rules above, it handles moves: an issue moved to another team on one side and edited on the
+ * other ends up as one issue, in its new team, with the edit applied. (Plain "edit beats delete" would bring the old
+ * file back and show the issue twice.)
+ */
+export function mergeIncoming(base: Map<string, string>, pending: Map<string, string | null>, incoming: Map<string, string | null>): IncomingMerge {
+  const out: IncomingMerge = { pending: new Map(), shown: new Map(), lostLines: [] }
+  const done = new Set<string>()
+  const settle = (path: string, merged: MergeResult, theirs: string | null) => {
+    out.pending.set(path, merged.text === theirs ? undefined : merged.text)
+    out.shown.set(path, merged.text)
+    if (merged.lostLines) out.lostLines.push(path)
+    done.add(path)
+  }
+
+  const added = (m: Map<string, string | null>) => {
+    const byId = new Map<string, string>()
+    for (const [p, t] of m) {
+      const id = identity(p)
+      if (id && t !== null && !base.has(p)) byId.set(id, p)
+    }
+    return byId
+  }
+  const theirsNew = added(incoming)
+  const oursNew = added(pending)
+
+  for (const [oldPath, theirs] of incoming) {
+    const id = identity(oldPath)
+    if (!id || !base.has(oldPath)) continue
+    const ours = pending.get(oldPath)
+    // they moved it, we edited it in its old place → apply our edit at the new place
+    const movedTo = theirsNew.get(id)
+    if (theirs === null && typeof ours === 'string' && movedTo && movedTo !== oldPath) {
+      const merged = mergeFile(movedTo, base.get(oldPath)!, ours, incoming.get(movedTo)!)
+      settle(movedTo, merged, incoming.get(movedTo)!)
+      out.pending.set(oldPath, undefined)
+      out.shown.set(oldPath, null)
+      done.add(oldPath)
+      continue
+    }
+    // we moved it, they edited it in its old place → bring their edit along, keep the old place deleted
+    const ourMove = oursNew.get(id)
+    if (theirs !== null && ours === null && ourMove && ourMove !== oldPath) {
+      const merged = mergeFile(ourMove, base.get(oldPath)!, pending.get(ourMove)!, theirs)
+      out.pending.set(ourMove, merged.text)
+      out.shown.set(ourMove, merged.text)
+      if (merged.lostLines) out.lostLines.push(ourMove)
+      out.pending.set(oldPath, null)
+      out.shown.set(oldPath, null)
+      done.add(oldPath)
+      done.add(ourMove)
+    }
+  }
+
+  for (const [path, theirs] of incoming) {
+    if (done.has(path)) continue
+    if (!pending.has(path)) {
+      out.shown.set(path, theirs)
+      continue
+    }
+    settle(path, mergeFile(path, base.get(path) ?? null, pending.get(path)!, theirs), theirs)
+  }
+  return out
 }

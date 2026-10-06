@@ -35,12 +35,23 @@ Your teammates' changes show up on their own, too.
 
 An **issue** is one piece of work: a task, a bug, an idea. Each has a short ID like `ENG-12` (team + number).
 
-- **Create one:** press **C** anywhere, or the **+** next to a group. Give it a title; everything else is optional.
-- **Open one:** click it. Change the title or description right there. It saves by itself.
+- **Create one:** press **C** anywhere, the pencil next to "Sprawniej" at the top left, or the **+** next to a group.
+  Give it a title; status, priority, assignee, labels, project and parent are optional buttons below.
+  Press `⌘` `Enter` (or `Ctrl` `Enter`) to create it. Tick **Create more** to add several in a row.
+- **Open one:** click it. Change the title, description or any property on the right. It saves by itself.
+- **Labels:** in the labels menu, type a name that doesn't exist yet and choose **Create label**.
+- **Move to another team:** change **Team** on the right. The issue gets that team's next number.
+- **Delete:** the `⋯` button next to the title, then **Delete issue**.
 - **Links and formatting:** paste a link and it becomes clickable. Select some words and paste a link to turn
   them into a link. Type `**bold**`, `- ` for a list, or `[] ` for a checklist, and it formats as you type.
 - **Mention someone:** type `@` and their name. They'll get a note in their Inbox.
-- **Point to another issue:** type its ID, like `ENG-7`.
+- **Point to another issue:** type its ID, like `ENG-7`. Hold `⌘` (or `Ctrl`) and click it to open it.
+
+### Working at the same time as others
+
+You never have to choose between your changes and a teammate's. If you both change different things, both stay. If
+you both change the same thing (say, the status), the one saved last stays, as in any app. The only time you'll see a
+note is when you both rewrote the same lines of a description; your text is kept, and theirs stays in the history.
 
 ### Statuses
 

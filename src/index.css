@@ -117,3 +117,45 @@
     & code { @apply border-0 bg-transparent p-0; }
   }
 }
+
+/* ---------- the editor (src/editor) ---------- */
+.tiptap-editor {
+  min-height: inherit;
+  & > :first-child { margin-top: 0; }
+  & p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: var(--muted-foreground);
+  }
+  & ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0.25rem;
+    & li { display: flex; gap: 0.5rem; align-items: flex-start; }
+    & li > label { margin-top: 0.3rem; user-select: none; }
+    & li > div { flex: 1; }
+    & li[data-checked="true"] > div { color: var(--muted-foreground); text-decoration: line-through; }
+    & input[type="checkbox"] { accent-color: var(--status-done); width: 0.95rem; height: 0.95rem; }
+  }
+}
+.mention {
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--status-done) 22%, transparent);
+  padding: 0 0.15rem;
+  color: var(--foreground);
+}
+.issue-ref {
+  border-radius: 0.25rem;
+  border: 1px solid var(--border);
+  padding: 0 0.25rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+/* code highlighting (lowlight / highlight.js classes), quiet on purpose */
+.hljs-comment, .hljs-quote { color: #71717a; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #c4b5fd; }
+.hljs-string, .hljs-attr, .hljs-template-tag { color: #86efac; }
+.hljs-number, .hljs-literal { color: #fdba74; }
+.hljs-title, .hljs-section, .hljs-function { color: #93c5fd; }
+.hljs-type, .hljs-class { color: #f9a8d4; }

@@ -3,6 +3,16 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.2.0: Create and edit issues
+*2026-10-07*
+
+- Press C anywhere to create an issue; only a title is needed
+- Descriptions format as you type: bold, lists, checklists, code, links
+- Type @ to mention someone, and an issue ID like ENG-7 to point at it
+- Change status, priority, assignee, labels, project and parent from the issue page
+- Create labels on the spot, move issues to another team, delete issues
+- Working at the same time as teammates never asks you to pick a version
+
 ## 0.1.1: Workspaces are easy to spot
 *2026-10-06*
 

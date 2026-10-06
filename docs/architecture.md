@@ -95,20 +95,33 @@ branch moved, GitHub's compare API lists the changed files (if it can't, for exa
 compare whole file lists by their git ids). We download only those, merge them with pending, and update the screen
 before anything else runs, so your next edit starts from the merged version.
 
-## Merge rules
+## Merge rules: nobody ever sees a conflict
 
-Most changes touch different files (one file per issue, per comment), so they just combine. When two people
-changed **the same issue**:
+Two people working at the same time must never be asked to choose between versions. Most things are separate
+files with a single writer, so they can't clash at all. Where two people can touch the same file, the app merges
+field by field, and when they changed the very same field the later save wins, exactly what a normal app with a
+server does. The code is `src/sync/merge.ts` (`mergeIncoming`), and every row below has a test in
+`tests/merge.test.ts`.
 
-| Situation | Result |
-| --- | --- |
-| Different fields changed (say, status and assignee) | Both changes are kept. |
-| The same field changed on both sides | The later save wins. |
-| Both edited the description | Lines are merged. Where the same lines changed, the later save wins, the other version stays in history, and a message says so. |
-| One edited, the other deleted | The edit wins and the issue stays. |
-| Both created an issue with the same number while offline | The one not yet on GitHub gets the next free number, with a message ("ENG-12 is now ENG-14"). |
+| What two people do at the same time | What happens | Notice? |
+| --- | --- | --- |
+| Comment on the same issue | Both comments appear (one file per comment) | No |
+| Edit different fields of one issue (status, assignee…) | Both changes stay | No |
+| Change the same field of one issue | The later save wins | No |
+| Add or remove labels on one issue | Both sides' additions and removals apply | No |
+| Edit different parts of a description | Lines merge | No |
+| Rewrite the same lines of a description | The later save's lines win; the other version stays in GitHub history | Yes, a small one, because text disappeared |
+| Edit one view (filters, emoji, layout…) | Field by field; filter lists merge like labels | No |
+| Edit one project, team, label or the workspace name | Field by field; the same field: later save wins | No |
+| Join or leave the same team | Membership lists merge | No |
+| Create issues | Separate files; if both got the same number while offline, the one not yet saved takes the next number | Yes, because the number changed ("ENG-12 is now ENG-14") |
+| One deletes an issue, the other edits it | The edit wins and the issue stays | No |
+| One moves an issue to another team, the other edits it | One issue, in the new team, with the edit | No |
+| Mark inbox items as read on two devices | Read lists merge | No |
+| Drag issues around | Each drag rewrites only the moved issue; the same issue: later drop wins | No |
 
-Comments, inbox items, people files and personal read marks have a single writer each, so they never clash.
+"Later save" means whoever's changes reach GitHub second. Someone who was offline for an hour and then comes back
+counts as later, just as their request would arrive later at a server.
 
 ## Ordering and drag-n-drop
 

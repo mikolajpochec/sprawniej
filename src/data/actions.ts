@@ -8,11 +8,12 @@
  */
 import { generateKeyBetween } from 'fractional-indexing'
 import { ulid } from 'ulid'
-import type { Issue, Person, Team } from '@/model/schema'
+import type { Issue, Label, Person, Team } from '@/model/schema'
 import { FORMAT_VERSION } from '@/model/schema'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { workspace } from '@/sync/engine'
-import { issueToFile, jsonToFile, paths } from './files'
+import { commentToFile as commentFile, issueToFile, jsonToFile, paths } from './files'
+import { pathOf } from './project'
 import { applyFiles } from './project'
 import { issueRef, useData } from './store'
 
@@ -40,6 +41,12 @@ function describe(issue: Issue, patch: IssuePatch): string {
   if (patch.priority !== undefined && patch.priority !== issue.priority) return `${ref}: priority ${PRIORITY_NAMES[patch.priority]}`
   if (patch.assignee !== undefined && patch.assignee !== issue.assignee)
     return patch.assignee ? `${ref}: assign to ${people[patch.assignee]?.name ?? patch.assignee}` : `${ref}: unassign`
+  if (patch.labels !== undefined) return `${ref}: labels`
+  if (patch.project !== undefined) return patch.project ? `${ref}: project ${useData.getState().projects[patch.project]?.name ?? ''}`.trim() : `${ref}: no project`
+  if (patch.parent !== undefined) {
+    const parent = patch.parent ? useData.getState().issues[patch.parent] : undefined
+    return parent ? `${ref}: sub-issue of ${issueRef(parent)}` : `${ref}: no parent`
+  }
   if (patch.title !== undefined) return `${ref}: edit title`
   if (patch.description !== undefined) return `${ref}: edit description`
   if (patch.sortOrder !== undefined) return `${ref}: reorder`
@@ -94,6 +101,68 @@ export function createIssue(input: NewIssue): Issue {
   }
   save(one(paths.issue(issue), issueToFile(issue)), `Create ${issueRef(issue)}: ${issue.title}`)
   return issue
+}
+
+/** Remove an issue (and its comments). Its sub-issues stay, without a parent. */
+export function deleteIssue(id: string) {
+  const s = useData.getState()
+  const issue = s.issues[id]
+  if (!issue) return
+  const files = new Map<string, string | null>([[paths.issue(issue), null]])
+  for (const c of s.comments[id] ?? []) files.set(paths.comment(issue.team, c), null)
+  for (const child of Object.values(s.issues).filter((i) => i.parent === id)) {
+    files.set(paths.issue(child), issueToFile({ ...child, parent: null, updatedAt: now() }))
+  }
+  save(files, `Delete ${issueRef(issue)}: ${issue.title}`)
+}
+
+/** Move an issue to another team: it gets that team's next number, like a new issue there. */
+export function moveIssueToTeam(id: string, team: string): Issue | undefined {
+  const s = useData.getState()
+  const old = s.issues[id]
+  if (!old || old.team === team || !s.teams[team]) return old
+  const number = Object.values(s.issues).filter((i) => i.team === team).reduce((max, i) => Math.max(max, i.number), 0) + 1
+  const next: Issue = { ...old, team, number, updatedAt: now() }
+  const files = new Map<string, string | null>([
+    [pathOf((p) => p.kind === 'issue' && p.value.id === id) ?? paths.issue(old), null],
+    [paths.issue(next), issueToFile(next)],
+  ])
+  for (const c of s.comments[id] ?? []) {
+    files.set(paths.comment(old.team, c), null)
+    files.set(paths.comment(team, c), commentFile(c))
+  }
+  save(files, `Move ${issueRef(old)} to ${s.teams[team].name} as ${issueRef(next)}`)
+  return next
+}
+
+// ---------- labels ----------
+
+/** a calm set of label colours; new labels take the next one */
+export const LABEL_COLORS = ['#eb5757', '#f2994a', '#f2c94c', '#4cb782', '#26b5ce', '#5e6ad2', '#bb87fc', '#f7a8d8', '#95a2b3']
+
+export function createLabel(name: string): Label {
+  const s = useData.getState()
+  const label: Label = { id: ulid(), name: name.trim(), color: LABEL_COLORS[Object.keys(s.labels).length % LABEL_COLORS.length] }
+  save(one(paths.label(label.id), jsonToFile(label)), `Add label ${label.name}`)
+  return label
+}
+
+export function updateLabel(id: string, patch: Partial<Pick<Label, 'name' | 'color'>>) {
+  const label = useData.getState().labels[id]
+  if (!label) return
+  save(one(paths.label(id), jsonToFile({ ...label, ...patch })), `Edit label ${patch.name ?? label.name}`)
+}
+
+/** remove a label everywhere */
+export function deleteLabel(id: string) {
+  const s = useData.getState()
+  const label = s.labels[id]
+  if (!label) return
+  const files = new Map<string, string | null>([[paths.label(id), null]])
+  for (const i of Object.values(s.issues)) {
+    if (i.labels.includes(id)) files.set(paths.issue(i), issueToFile({ ...i, labels: i.labels.filter((l) => l !== id), updatedAt: now() }))
+  }
+  save(files, `Delete label ${label.name}`)
 }
 
 // ---------- teams ----------

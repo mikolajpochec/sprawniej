@@ -1,23 +1,29 @@
 /**
  * One issue: title, description, sub-issues and comments on the left, properties on the right.
  * Everything saves by itself; there is no Save button anywhere (CLAUDE.md, golden rules).
- * The rich description editor arrives in milestone 2; until then the description is shown read-only.
  */
+import { useState, type ReactNode } from 'react'
 import Markdown from 'react-markdown'
-import { useParams } from 'wouter'
+import { Link, useLocation, useParams } from 'wouter'
 import { useShallow } from 'zustand/react/shallow'
+import { Link2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useCrumbs } from '@/app/chrome'
 import { NotFound } from '@/app/NotFound'
 import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
-import { updateIssue } from '@/data/actions'
+import { Picker } from '@/components/Picker'
+import { createLabel, deleteIssue, moveIssueToTeam, updateIssue } from '@/data/actions'
 import { findByRef, issueRef, useData } from '@/data/store'
-import { PRIORITY_IDS, PRIORITY_NAMES, STATUSES, statusOf } from '@/model/status'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu'
+import { Editor } from '@/editor/Editor'
+import { PRIORITY_NAMES, statusOf } from '@/model/status'
+import { Button } from '@/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { PriorityIcon, StatusIcon } from './icons'
 import { IssueRow } from './IssueList'
 import { shortDate } from './format'
-import type { ReactNode } from 'react'
+import { priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
 
 function Property({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -28,41 +34,72 @@ function Property({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-const pick = 'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[15px] hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+const pick =
+  'flex min-h-8 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[15px] hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-accent/60'
 
 export function IssuePage() {
   const { ref = '' } = useParams<{ ref: string }>()
+  const [, navigate] = useLocation()
   const issue = useData((s) => findByRef(s.issues, ref))
   const team = useData((s) => (issue ? s.teams[issue.team] : undefined))
+  const teams = useData(useShallow((s) => Object.values(s.teams)))
   const people = useData((s) => s.people)
   const labels = useData((s) => s.labels)
   const project = useData((s) => (issue?.project ? s.projects[issue.project] : undefined))
   const parent = useData((s) => (issue?.parent ? s.issues[issue.parent] : undefined))
   const all = useData(useShallow((s) => Object.values(s.issues)))
   const comments = useData((s) => (issue ? s.comments[issue.id] : undefined))
+  const peopleItems = usePeopleItems()
+  const labelItems = useLabelItems()
+  const projectItems = useProjectItems(issue?.team)
+  const parentItems = useParentItems(issue)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   useCrumbs(issue && team ? [{ label: `${team.emoji} ${team.name}`, href: `/team/${team.key}/issues` }, { label: issueRef(issue) }] : [])
   if (!issue) return <NotFound />
   const children = all.filter((i) => i.parent === issue.id).sort((a, b) => (a.sortOrder < b.sortOrder ? -1 : 1))
+  const assignee = issue.assignee ? people[issue.assignee] : undefined
 
   return (
     <div className="flex min-h-0 flex-1">
       <article className="min-w-0 flex-1 overflow-y-auto px-12 py-10">
         <div className="mx-auto max-w-3xl">
           {parent && (
-            <p className="mb-3 text-sm text-muted-foreground">
-              Sub-issue of {issueRef(parent)} {parent.title}
-            </p>
+            <Link href={`/issue/${issueRef(parent)}`} className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <StatusIcon status={parent.status} /> Sub-issue of {issueRef(parent)} {parent.title}
+            </Link>
           )}
-          <textarea
-            value={issue.title}
-            onChange={(e) => updateIssue(issue.id, { title: e.target.value.replace(/\n/g, ' ') })}
-            rows={1}
-            className="field-sizing-content w-full resize-none bg-transparent text-2xl font-semibold leading-snug outline-none"
-            aria-label="Title"
-          />
-          <div className="prose-sprawniej mt-4">
-            {issue.description ? <Markdown>{issue.description}</Markdown> : <p className="text-muted-foreground">Add a description…</p>}
+          <div className="flex items-start gap-2">
+            <textarea
+              value={issue.title}
+              placeholder="Issue title"
+              onChange={(e) => updateIssue(issue.id, { title: e.target.value.replace(/\n/g, ' ') })}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), (e.target as HTMLTextAreaElement).blur())}
+              rows={1}
+              className="field-sizing-content w-full resize-none bg-transparent text-2xl font-semibold leading-snug outline-none"
+              aria-label="Title"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label="More actions">
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() => {
+                    void navigator.clipboard.writeText(`${location.origin}${location.pathname}#/issue/${issueRef(issue)}`).then(() => toast('Link copied'))
+                  }}
+                >
+                  <Link2 /> Copy link
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
+                  <Trash2 /> Delete issue
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+          <Editor key={issue.id} value={issue.description} onChange={(description) => updateIssue(issue.id, { description })} className="mt-4" />
 
           {children.length > 0 && (
             <section className="mt-10">
@@ -102,68 +139,120 @@ export function IssuePage() {
       <aside className="w-80 shrink-0 overflow-y-auto border-l px-5 py-8">
         <div className="flex flex-col gap-1">
           <Property label="Status">
-            <DropdownMenu>
-              <DropdownMenuTrigger className={pick}>
-                <StatusIcon status={issue.status} />
-                {statusOf(issue.status).name}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {STATUSES.map((s) => (
-                  <DropdownMenuItem key={s.id} onSelect={() => updateIssue(issue.id, { status: s.id })}>
-                    <StatusIcon status={s.id} />
-                    {s.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Picker placeholder="Change status…" items={statusItems} value={issue.status} onSelect={(status) => updateIssue(issue.id, { status })}>
+              <button type="button" className={pick}>
+                <StatusIcon status={issue.status} /> {statusOf(issue.status).name}
+              </button>
+            </Picker>
           </Property>
           <Property label="Priority">
-            <DropdownMenu>
-              <DropdownMenuTrigger className={pick}>
-                <PriorityIcon priority={issue.priority} />
-                {PRIORITY_NAMES[issue.priority]}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {PRIORITY_IDS.map((p) => (
-                  <DropdownMenuItem key={p} onSelect={() => updateIssue(issue.id, { priority: p })}>
-                    <PriorityIcon priority={p} />
-                    {PRIORITY_NAMES[p]}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Picker placeholder="Change priority…" items={priorityItems} value={issue.priority} onSelect={(priority) => updateIssue(issue.id, { priority })}>
+              <button type="button" className={pick}>
+                <PriorityIcon priority={issue.priority} /> {PRIORITY_NAMES[issue.priority]}
+              </button>
+            </Picker>
           </Property>
           <Property label="Assignee">
-            <DropdownMenu>
-              <DropdownMenuTrigger className={pick}>
-                <PersonAvatar person={issue.assignee ? people[issue.assignee] : undefined} login={issue.assignee} />
-                {issue.assignee ? (people[issue.assignee]?.name ?? issue.assignee) : <span className="text-muted-foreground">No one</span>}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onSelect={() => updateIssue(issue.id, { assignee: null })}>
-                  <PersonAvatar login={null} /> No one
-                </DropdownMenuItem>
-                {Object.values(people).map((p) => (
-                  <DropdownMenuItem key={p.login} onSelect={() => updateIssue(issue.id, { assignee: p.login })}>
-                    <PersonAvatar person={p} /> {p.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Picker placeholder="Assign to…" items={peopleItems} value={issue.assignee} onSelect={(assignee) => updateIssue(issue.id, { assignee })}>
+              <button type="button" className={pick}>
+                <PersonAvatar person={assignee} login={issue.assignee} />
+                {issue.assignee ? (assignee?.name ?? issue.assignee) : <span className="text-muted-foreground">No one</span>}
+              </button>
+            </Picker>
           </Property>
           <Property label="Labels">
-            <div className="flex flex-wrap gap-1.5 px-2">
-              {issue.labels.length ? issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />) : <span className="text-[15px] text-muted-foreground">None</span>}
-            </div>
+            <Picker
+              multiple
+              placeholder="Labels…"
+              items={labelItems}
+              value={issue.labels}
+              onSelect={(ids) => updateIssue(issue.id, { labels: ids })}
+              onCreate={(name) => updateIssue(issue.id, { labels: [...issue.labels, createLabel(name).id] })}
+              createLabel={(name) => `Create label “${name}”`}
+            >
+              <button type="button" className={`${pick} flex-wrap`}>
+                {issue.labels.filter((id) => labels[id]).length ? (
+                  issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)
+                ) : (
+                  <span className="text-muted-foreground">Add labels</span>
+                )}
+              </button>
+            </Picker>
           </Property>
           <Property label="Project">
-            <span className="px-2 text-[15px]">{project ? `${project.emoji} ${project.name}` : <span className="text-muted-foreground">None</span>}</span>
+            <Picker placeholder="Move to project…" items={projectItems} value={issue.project} onSelect={(p) => updateIssue(issue.id, { project: p })}>
+              <button type="button" className={pick}>
+                {project ? (
+                  <>
+                    <span className="w-4 text-center leading-none">{project.emoji}</span> {project.name}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">No project</span>
+                )}
+              </button>
+            </Picker>
           </Property>
+          <Property label="Parent">
+            <Picker placeholder="Make a sub-issue of…" items={parentItems} value={issue.parent} onSelect={(p) => updateIssue(issue.id, { parent: p })}>
+              <button type="button" className={pick}>
+                {parent ? (
+                  <span className="truncate">
+                    <span className="text-muted-foreground">{issueRef(parent)}</span> {parent.title}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">None</span>
+                )}
+              </button>
+            </Picker>
+          </Property>
+          {teams.length > 1 && (
+            <Property label="Team">
+              <Picker
+                placeholder="Move to team…"
+                items={teams.map((t) => ({ value: t.key, label: t.name, icon: <span className="w-4 text-center leading-none">{t.emoji}</span> }))}
+                value={issue.team}
+                onSelect={(key) => {
+                  const moved = moveIssueToTeam(issue.id, key)
+                  if (moved && moved.team !== issue.team) navigate(`/issue/${issueRef(moved)}`, { replace: true })
+                }}
+              >
+                <button type="button" className={pick}>
+                  <span className="w-4 text-center leading-none">{team?.emoji}</span> {team?.name}
+                </button>
+              </Picker>
+            </Property>
+          )}
         </div>
         <p className="mt-8 px-2 text-xs text-muted-foreground">
           Created {shortDate(issue.createdAt)} by {people[issue.createdBy]?.name ?? issue.createdBy}
+          <br />
+          Last changed {shortDate(issue.updatedAt)}
         </p>
       </aside>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogTitle>Delete {issueRef(issue)}?</DialogTitle>
+          <DialogDescription>“{issue.title}” and its comments will be removed for everyone. Its sub-issues stay.</DialogDescription>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const back = `/team/${issue.team}/issues`
+                deleteIssue(issue.id)
+                setConfirmDelete(false)
+                navigate(back, { replace: true })
+                toast(`Deleted ${issueRef(issue)}`)
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

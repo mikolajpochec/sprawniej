@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { issueToFile, jsonToFile, parseFile, paths } from '@/data/files'
 import { sampleData } from '@/data/sample'
-import { mergeFile, mergeText, mergeValue } from '@/sync/merge'
+import { mergeFile, mergeIncoming, mergeText, mergeValue } from '@/sync/merge'
+import { commentToFile } from '@/data/files'
+import { tidyMarkdown } from '@/editor/tidy'
 import { renumber } from '@/sync/renumber'
 import type { Issue } from '@/model/schema'
 
@@ -15,22 +17,22 @@ describe('issues changed by two people', () => {
     const ours = { ...base, status: 'done' as const, updatedAt: '2026-10-07T10:00:00.000Z' }
     const theirs = { ...base, assignee: 'zosia', updatedAt: '2026-10-07T09:00:00.000Z' }
     const m = mergeFile(path, file(base), file(ours), file(theirs))
-    expect(m.conflict).toBe(false)
+    expect(m.lostLines).toBe(false)
     const r = read(m.text)
     expect(r.status).toBe('done')
     expect(r.assignee).toBe('zosia')
     expect(r.updatedAt).toBe('2026-10-07T10:00:00.000Z')
   })
-  test('same field: ours wins and it is reported', () => {
+  test('same field: the later save (ours) wins, silently', () => {
     const m = mergeFile(path, file(base), file({ ...base, title: 'Ours' }), file({ ...base, title: 'Theirs' }))
-    expect(m.conflict).toBe(true)
+    expect(m.lostLines).toBe(false)
     expect(read(m.text).title).toBe('Ours')
   })
   test('labels merge as sets', () => {
     const b = { ...base, labels: ['a', 'b'] }
     const m = mergeFile(path, file(b), file({ ...b, labels: ['a', 'b', 'c'] }), file({ ...b, labels: ['b', 'd'] }))
     expect(read(m.text).labels).toEqual(['b', 'c', 'd'])
-    expect(m.conflict).toBe(false)
+    expect(m.lostLines).toBe(false)
   })
   test('descriptions merge line by line', () => {
     const b = { ...base, description: 'one\ntwo\nthree\nfour\nfive' }
@@ -38,10 +40,13 @@ describe('issues changed by two people', () => {
     const theirs = { ...b, description: 'one\ntwo\nthree\nfour\nFIVE' }
     const m = mergeFile(path, file(b), file(ours), file(theirs))
     expect(read(m.text).description).toBe('ONE\ntwo\nthree\nfour\nFIVE')
-    expect(m.conflict).toBe(false)
+    expect(m.lostLines).toBe(false)
   })
-  test('overlapping description lines keep ours', () => {
+  test('overlapping description lines keep ours, and that is the one thing reported', () => {
     expect(mergeText('a\nb\nc', 'a\nX\nc', 'a\nY\nc')).toBe('a\nX\nc')
+    const b = { ...base, description: 'a\nb\nc' }
+    const m = mergeFile(path, file(b), file({ ...b, description: 'a\nX\nc' }), file({ ...b, description: 'a\nY\nc' }))
+    expect(m.lostLines).toBe(true)
   })
   test('an edit beats a delete, both ways', () => {
     const edited = file({ ...base, title: 'Edited' })
@@ -92,5 +97,70 @@ describe('renumbering', () => {
     const b = at(5, 'b', '2026-10-07T02:00:00.000Z')
     const r = renumber(new Map(), new Map([[paths.issue(b), file(b)], [paths.issue(a), file(a)]]))
     expect(r.map((x) => [x.path.includes('/b.md'), x.to])).toEqual([[true, 6]])
+  })
+})
+
+describe('a pull, as a whole', () => {
+  const p = (i: Issue) => paths.issue(i)
+  test('comments on the same issue never clash: each is its own file', () => {
+    const ours = { id: 'c-ours', issue: base.id, author: 'a', createdAt: '2026-10-07T10:00:00.000Z', body: 'mine' }
+    const theirs = { ...ours, id: 'c-theirs', author: 'b', body: 'theirs' }
+    const r = mergeIncoming(new Map(), new Map([[paths.comment('ENG', ours), commentToFile(ours)]]), new Map([[paths.comment('ENG', theirs), commentToFile(theirs)]]))
+    expect([...r.shown.keys()]).toEqual([paths.comment('ENG', theirs)])
+    expect(r.pending.size).toBe(0) // ours is untouched and still waiting to be saved
+    expect(r.lostLines).toEqual([])
+  })
+  test('two people editing one view: both filter changes survive', () => {
+    const v = sampleData().views['v-bugs']
+    const vp = paths.view(v.id)
+    const r = mergeIncoming(
+      new Map([[vp, jsonToFile(v)]]),
+      new Map([[vp, jsonToFile({ ...v, filters: { labels: ['bug', 'feature'] } })]]),
+      new Map([[vp, jsonToFile({ ...v, emoji: '🐛', display: { ...v.display, layout: 'list' } })]]),
+    )
+    const merged = JSON.parse(r.shown.get(vp)!)
+    expect(merged.filters.labels).toEqual(['bug', 'feature'])
+    expect(merged.emoji).toBe('🐛')
+    expect(merged.display.layout).toBe('list')
+    expect(r.lostLines).toEqual([])
+  })
+  test('they moved an issue to another team, we edited it: one issue, in the new team, with our edit', () => {
+    const moved = { ...base, team: 'DES', number: 9 }
+    const r = mergeIncoming(
+      new Map([[p(base), file(base)]]),
+      new Map([[p(base), file({ ...base, status: 'done' })]]),
+      new Map<string, string | null>([[p(base), null], [p(moved), file(moved)]]),
+    )
+    expect(r.shown.get(p(base))).toBeNull()
+    expect(r.pending.get(p(base))).toBeUndefined()
+    const now = parseFile(p(moved), r.shown.get(p(moved))!)!.value as Issue
+    expect([now.team, now.number, now.status]).toEqual(['DES', 9, 'done'])
+  })
+  test('we moved an issue, they edited it: our move stands and their edit comes along', () => {
+    const moved = { ...base, team: 'DES', number: 9 }
+    const r = mergeIncoming(
+      new Map([[p(base), file(base)]]),
+      new Map<string, string | null>([[p(base), null], [p(moved), file(moved)]]),
+      new Map([[p(base), file({ ...base, assignee: 'zosia' })]]),
+    )
+    expect(r.shown.get(p(base))).toBeNull()
+    expect(r.pending.get(p(base))).toBeNull() // still to be deleted on GitHub
+    const now = parseFile(p(moved), r.pending.get(p(moved))!)!.value as Issue
+    expect([now.team, now.number, now.assignee]).toEqual(['DES', 9, 'zosia'])
+  })
+  test('an unchanged pending file that matches theirs stops being pending', () => {
+    const edited = file({ ...base, title: 'Same edit' })
+    const r = mergeIncoming(new Map([[p(base), file(base)]]), new Map([[p(base), edited]]), new Map([[p(base), edited]]))
+    expect(r.pending.has(p(base))).toBe(true)
+    expect(r.pending.get(p(base))).toBeUndefined()
+  })
+})
+
+describe('tidy Markdown', () => {
+  test('links that show their own address become bare addresses', () => {
+    expect(tidyMarkdown('see [https://example.com](https://example.com) or [docs](https://x.dev)')).toBe('see https://example.com or [docs](https://x.dev)')
+  })
+  test('blank lines at the start and end go', () => {
+    expect(tidyMarkdown('\n\n  \nHello\n\n')).toBe('Hello')
   })
 })

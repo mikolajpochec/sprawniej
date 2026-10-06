@@ -1,12 +1,14 @@
 /** The left column: product name, personal pages, workspace pages, your teams, and you at the bottom. */
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
-import { ChevronDown, ChevronsUpDown, CircleHelp, CircleUser, Inbox, Layers, LogOut, Box, Plus, Settings, SquareStack, Repeat, ExternalLink } from 'lucide-react'
+import { SquarePen, ChevronDown, ChevronsUpDown, CircleHelp, CircleUser, Inbox, Layers, LogOut, Box, Plus, Settings, SquareStack, Repeat, ExternalLink } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { Logo } from '@/components/Logo'
 import { PersonAvatar } from '@/components/Avatar'
 import { useData } from '@/data/store'
 import { TeamsDialog } from '@/features/teams/TeamsDialog'
+import { openComposer } from '@/features/issues/composer'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
 import { useSession } from '@/session'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
@@ -125,10 +127,22 @@ export function Sidebar() {
   const unread = useData((s) => s.inbox.filter((n) => !s.readState.read.includes(n.id) && (!s.readState.readUntil || n.at > s.readState.readUntil)).length)
   return (
     <aside className="flex h-full w-[17.5rem] shrink-0 flex-col border-r bg-sidebar">
-      <Link href="/" className="flex h-16 items-center gap-3 px-5 text-xl font-semibold tracking-tight">
-        <Logo />
-        Sprawniej
-      </Link>
+      <div className="flex h-16 items-center gap-3 pr-3 pl-5">
+        <Link href="/" className="flex items-center gap-3 text-xl font-semibold tracking-tight">
+          <Logo />
+          Sprawniej
+        </Link>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" onClick={() => openComposer()} className="ml-auto rounded-lg border p-2 text-sidebar-foreground/90 hover:bg-sidebar-accent" aria-label="New issue">
+              <SquarePen className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            New issue <kbd className="ml-1 rounded border px-1">C</kbd>
+          </TooltipContent>
+        </Tooltip>
+      </div>
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
         <div className="mt-2 flex flex-col gap-0.5">
           <NavItem href="/inbox" icon={<Inbox />} count={unread}>

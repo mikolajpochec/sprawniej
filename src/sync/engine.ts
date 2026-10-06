@@ -31,7 +31,7 @@ import { applyFiles, resetProjection } from '@/data/project'
 import { EMPTY, issueRef, useData } from '@/data/store'
 import type { Person } from '@/model/schema'
 import { LocalCopy, type Meta } from './local'
-import { mergeFile } from './merge'
+import { mergeIncoming } from './merge'
 import { renumber } from './renumber'
 import { blobSha } from './sha'
 
@@ -270,27 +270,20 @@ export class Workspace {
     const shas = [...new Set([...changed.values()].filter((s): s is string => !!s))]
     const blobs = shas.length ? await getBlobs(this.token, this.repo, shas) : new Map<string, string>()
 
-    const shown = new Map<string, string | null>()
-    const baseUpdate = new Map<string, string | null>()
-    const clashes: string[] = []
-    for (const [path, sha] of changed) {
-      const theirs = sha ? blobs.get(sha)! : null
-      const base = this.base.get(path) ?? null
-      baseUpdate.set(path, theirs)
-      if (this.pending.has(path)) {
-        const ours = this.pending.get(path)!
-        const m = mergeFile(path, base, ours, theirs)
-        if (m.conflict) clashes.push(path)
-        if (m.text === theirs) {
-          this.pending.delete(path)
-          void this.local.dropPending([path])
-        } else {
-          this.pending.set(path, m.text)
-          void this.local.putPending(path, m.text)
-        }
-        shown.set(path, m.text)
-      } else shown.set(path, theirs)
+    const incoming = new Map<string, string | null>()
+    for (const [path, sha] of changed) incoming.set(path, sha ? blobs.get(sha)! : null)
+    const merged = mergeIncoming(this.base, this.pending, incoming)
+    for (const [path, text] of merged.pending) {
+      if (text === undefined) {
+        this.pending.delete(path)
+        void this.local.dropPending([path])
+      } else {
+        this.pending.set(path, text)
+        void this.local.putPending(path, text)
+      }
     }
+    const shown = merged.shown
+    const baseUpdate = incoming
     for (const [p, t] of baseUpdate) {
       if (t === null) this.base.delete(p)
       else this.base.set(p, t)
@@ -309,7 +302,7 @@ export class Workspace {
     applyFiles(shown, this.me.login)
     await this.local.putBase(baseUpdate)
     await this.local.setMeta(this.meta)
-    if (clashes.length) this.tellAboutClashes(clashes)
+    if (merged.lostLines.length) this.tellAboutClashes(merged.lostLines)
   }
 
   private tellAboutClashes(paths: string[]) {
@@ -320,8 +313,8 @@ export class Workspace {
         return c?.kind === 'issue' && issues[c.parts[1]] ? issueRef(issues[c.parts[1]]) : null
       })
       .filter(Boolean)
-    toast(names.length ? `${names.join(', ')} changed by a teammate at the same time` : 'A teammate changed the same thing at the same time', {
-      description: 'Both sets of changes are kept where they don’t overlap. Where they do, yours is kept.',
+    toast(names.length ? `${names.join(', ')}: a teammate edited the same lines` : 'A teammate edited the same lines', {
+      description: 'Your text is kept. Theirs is still in the workspace history on GitHub.',
     })
   }
 
