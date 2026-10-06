@@ -76,8 +76,8 @@ function Composer() {
       className="top-[20%] translate-y-0 gap-0 p-0 sm:max-w-2xl"
       onOpenAutoFocus={(e) => e.preventDefault()}
       onKeyDown={(e) => {
-        // ⌘/Ctrl + Enter creates, wherever focus is in the dialog
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        // ⌘/Ctrl + Enter creates, wherever focus is in the dialog (unless the title or the editor already did)
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.defaultPrevented) {
           e.preventDefault()
           submit()
         }

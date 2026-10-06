@@ -104,14 +104,37 @@ On your team's page, the tabs show:
 Your teams are in the sidebar under **Your teams**. Each team has its own **Issues**, **Projects** and **Views**.
 Press **+** next to *Your teams* to join a team or create a new one.
 
+## Filters
+
+**Filter** (above every list) narrows it down: by status, assignee, priority, labels, project or team. Each filter
+shows as a chip. Click a chip to change it, or its **×** to remove it. Inside one filter, any of the chosen values
+counts ("Todo or In Progress"); several filters must all match ("Todo, and assigned to Ana").
+
+Filters you set on a team's page or on My issues are just for you, and go away when you leave the page. To keep
+them, press **Save as view**.
+
 ## Views
 
-A **view** is a saved filter with its own emoji, like "🐞 Open bugs" or "📊 Insights". Open **Views** in the sidebar
-to see them. Changing a view's filters saves straight away, for everyone.
+A **view** is a saved set of filters with its own emoji, like "🐞 Open bugs" or "📊 Insights". Open **Views** in the
+sidebar to see them, and **New view** to make one. A view shows issues from the whole workspace or from one team.
+
+A view belongs to everyone. Changing its name, emoji, description, filters, grouping or List / Board saves straight
+away, for everyone. To remove a view, use **⋯ › Delete view**; its issues stay as they are.
 
 ## Projects
 
-A **project** is a bigger goal made of several issues, like "New onboarding". It shows how much is done.
+A **project** is a bigger goal made of several issues, like "New onboarding". **New project** on the Projects page
+starts one. On its page you can change its emoji, name and description in place, and set its status, who leads it,
+a target date and which teams work on it. The bar shows how many of its issues are done.
+
+Add issues to a project from the project's page, or pick the project on any issue. Deleting a project
+(**⋯ › Delete project**) keeps its issues; they just no longer belong to a project.
+
+## Labels
+
+Labels like "Bug" or "Design" sort issues across teams. Make one right from an issue (type a new name in the
+labels menu), or in **Settings › Labels**, where you can also rename, recolour and delete them. Changes apply to
+every issue that has the label.
 
 ## Inbox
 

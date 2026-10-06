@@ -1,11 +1,14 @@
-/** The list of saved views: emoji, name, description, owner. */
+/** The list of saved views: emoji, name, description, owner. "New view" makes one. */
+import { useState } from 'react'
 import { Link, useParams } from 'wouter'
-import { Layers } from 'lucide-react'
+import { Layers, Plus } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCrumbs } from '@/app/chrome'
 import { PersonAvatar } from '@/components/Avatar'
 import { EmptyState } from '@/components/EmptyState'
 import { useData } from '@/data/store'
+import { Button } from '@/ui/button'
+import { NewViewDialog } from './NewViewDialog'
 
 export function ViewsPage() {
   const { key } = useParams<{ key?: string }>()
@@ -13,16 +16,27 @@ export function ViewsPage() {
   const views = useData(useShallow((s) => Object.values(s.views).filter((v) => (key ? v.team === key : true))))
   const people = useData((s) => s.people)
   useCrumbs(team ? [{ label: `${team.emoji} ${team.name}` }, { label: 'Views' }] : [{ label: 'Views' }])
+  const [creating, setCreating] = useState(false)
   const sorted = [...views].sort((a, b) => a.name.localeCompare(b.name))
+  const dialog = creating && <NewViewDialog open onOpenChange={setCreating} preset={{ team: key ?? null }} />
+  const newButton = (
+    <Button variant="outline" onClick={() => setCreating(true)}>
+      <Plus /> New view
+    </Button>
+  )
   if (!sorted.length) {
     return (
-      <EmptyState icon={<Layers />} title="No views yet">
-        A view is a saved filter with its own emoji, for example "🐞 Open bugs". Make one from any list of issues.
-      </EmptyState>
+      <>
+        <EmptyState icon={<Layers />} title="No views yet" action={newButton}>
+          A view is a saved filter with its own emoji, for example “🐞 Open bugs”. Make one here, or filter any list of issues and press Save as view.
+        </EmptyState>
+        {dialog}
+      </>
     )
   }
   return (
     <div className="flex-1 overflow-y-auto px-8 pt-6">
+      <div className="mb-4 flex justify-end">{newButton}</div>
       <div className="flex h-10 items-center border-b px-4 text-sm text-muted-foreground">
         <span>Name</span>
         <span className="ml-auto w-56">Owner</span>
@@ -40,6 +54,7 @@ export function ViewsPage() {
           </span>
         </Link>
       ))}
+      {dialog}
     </div>
   )
 }
