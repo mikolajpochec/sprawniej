@@ -95,39 +95,66 @@ function add(d: Draft, p: Parsed, me: string | null) {
   }
 }
 
-/** Apply changed files (null = deleted) to the store. `me` decides whose inbox and read marks we keep. */
+/** which part of the store each kind of file lives in */
+const FIELD = {
+  workspace: 'workspace',
+  person: 'people',
+  label: 'labels',
+  team: 'teams',
+  issue: 'issues',
+  comment: 'comments',
+  project: 'projects',
+  view: 'views',
+  inbox: 'inbox',
+  readState: 'readState',
+} as const satisfies Record<Parsed['kind'], keyof Draft>
+
+/**
+ * Apply changed files (null = deleted) to the store. `me` decides whose inbox and read marks we keep.
+ * Only the parts of the store these files touch get a new object, so a screen about labels doesn't redraw
+ * because an issue changed.
+ */
 export function applyFiles(changes: Map<string, string | null>, me: string | null): string[] {
-  const s = useData.getState()
-  const d: Draft = {
-    workspace: s.workspace,
-    people: { ...s.people },
-    labels: { ...s.labels },
-    teams: { ...s.teams },
-    issues: { ...s.issues },
-    projects: { ...s.projects },
-    views: { ...s.views },
-    comments: { ...s.comments },
-    inbox: s.inbox,
-    readState: s.readState,
-  }
   const broken: string[] = []
+  const parsed = new Map<string, Parsed | null>()
+  const touched = new Set<keyof Draft>()
   for (const [path, text] of changes) {
     const old = index.get(path)
+    if (old) touched.add(FIELD[old.kind])
+    let p: Parsed | null = null
+    if (text !== null) {
+      try {
+        p = parseFile(path, text)
+      } catch (e) {
+        console.warn(`Sprawniej skipped a file it couldn't read: ${(e as Error).message}`)
+        broken.push(path)
+      }
+    }
+    if (p) touched.add(FIELD[p.kind])
+    parsed.set(path, p)
+  }
+  if (!touched.size) {
+    for (const path of changes.keys()) index.delete(path)
+    return broken
+  }
+
+  const s = useData.getState()
+  const d: Partial<Draft> = {}
+  for (const f of touched) {
+    const v = s[f]
+    // records are copied so we can change them; the rest are replaced whole by remove/add
+    d[f] = (v && typeof v === 'object' && !Array.isArray(v) && f !== 'workspace' && f !== 'readState' ? { ...v } : v) as never
+  }
+  const draft = d as Draft
+  for (const [path, p] of parsed) {
+    const old = index.get(path)
     if (old) {
-      remove(d, old)
+      remove(draft, old)
       index.delete(path)
     }
-    if (text === null) continue
-    let parsed: Parsed | null = null
-    try {
-      parsed = parseFile(path, text)
-    } catch (e) {
-      console.warn(`Sprawniej skipped a file it couldn't read: ${(e as Error).message}`)
-      broken.push(path)
-    }
-    if (!parsed) continue
-    index.set(path, parsed)
-    add(d, parsed, me)
+    if (!p) continue
+    index.set(path, p)
+    add(draft, p, me)
   }
   useData.setState(d)
   return broken

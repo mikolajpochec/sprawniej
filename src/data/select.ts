@@ -119,10 +119,30 @@ export function nestChildren(issues: Issue[]): { issue: Issue; depth: number }[]
   return out
 }
 
-/** sub-issue counter for a row: how many children are done, out of how many */
-export function childProgress(parentId: string, issues: Issue[]): { done: number; total: number } {
-  const kids = issues.filter((i) => i.parent === parentId)
-  return { done: kids.filter((k) => statusOf(k.status).group === 'completed').length, total: kids.length }
+export interface ChildCount {
+  done: number
+  total: number
+}
+
+const childCache = new WeakMap<Record<string, Issue>, Map<string, ChildCount>>()
+
+/**
+ * Sub-issue counters for every parent at once: how many children are done, out of how many. Built once per
+ * version of the issues record (the store replaces it on every change), so a list of n rows costs O(n), not O(n²).
+ */
+export function childIndex(issues: Record<string, Issue>): Map<string, ChildCount> {
+  let index = childCache.get(issues)
+  if (index) return index
+  index = new Map()
+  for (const i of Object.values(issues)) {
+    if (!i.parent) continue
+    const c = index.get(i.parent) ?? { done: 0, total: 0 }
+    c.total++
+    if (statusOf(i.status).group === 'completed') c.done++
+    index.set(i.parent, c)
+  }
+  childCache.set(issues, index)
+  return index
 }
 
 /** share of a project's issues that are done, 0..1 (canceled ones don't count either way) */

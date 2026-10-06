@@ -80,16 +80,41 @@ request, through GitHub's GraphQL API). After that only changed files are.
 2. After about 1.5 seconds without new changes (or at once when you hide the tab), all pending files go to GitHub as
    one commit with a plain message, such as `ENG-12: In Progress -> Done`. That is three requests: a new tree on top
    of the last known one, a commit, and moving the branch.
+   GitHub allows each person about 500 such requests an hour, so a busy hour saves in bigger batches
+   (`src/sync/pace.ts`): after 20 saves in the last hour we wait 4 s, after 60 we wait 10 s, after 120 we wait 30 s.
+   Hiding the tab still saves at once.
 3. Moving the branch refuses to overwrite a teammate's newer save. Then we pull, merge, and try again (up to 4 times).
 4. An empty repository can't take a tree yet, so the very first file (`sprawniej.json`) is created through GitHub's
    contents API.
 5. Offline, changes keep piling up in pending and go out when you are back online.
+6. If GitHub still says "too many requests", the error carries when to come back (`Retry-After`, or the rate limit
+   reset). We make no calls until then, and the save chip keeps saying "Saving…" with the time in its tooltip. It is
+   not shown as an error, because nothing is lost.
 
 Commits are authored as `Name <id+login@users.noreply.github.com>`, so GitHub shows them as yours.
 
+## Several tabs
+
+The same workspace can be open in many tabs, but only one of them, the **leader**, talks to GitHub and keeps the
+browser copy (`src/sync/tabs.ts`). The leader is whichever tab holds a Web Lock named after the workspace. The
+others are **followers**:
+
+- On opening, a follower asks the leader for every file over a `BroadcastChannel` and shows them.
+- A follower's change shows in that tab at once, then goes to the leader with each file as it was before and after.
+  If the leader's version moved on in the meantime (a teammate's change arrived), the leader merges them by the
+  usual rules. Until the leader confirms, the follower keeps showing its own version of those files.
+- The leader sends every changed file (yours, other tabs', teammates') and its save chip to all followers.
+- When a follower gets focus or is hidden, it asks the leader to check GitHub or to save now.
+- When the leader tab closes, the next tab in line gets the lock, loads the browser copy, sends again whatever the
+  old leader hadn't confirmed, and carries on. Followers then send it anything still unconfirmed.
+- Signing out or entering a new GitHub key in one tab restarts the others.
+
+So ten open tabs cost GitHub as much as one, and two tabs never race each other to save. A browser without Web
+Locks lets every tab lead on its own.
+
 ## Getting other people's changes
 
-We check GitHub every 30 seconds while the tab is visible, when the tab gets focus, and when the network comes
+The leader checks GitHub every 30 seconds while any tab of the workspace is visible, when the tab gets focus, and when the network comes
 back. The check asks for the branch with an ETag, so "nothing changed" doesn't use up GitHub's rate limit. When the
 branch moved, GitHub's compare API lists the changed files (if it can't, for example after a rewritten history, we
 compare whole file lists by their git ids). We download only those, merge them with pending, and update the screen
@@ -138,7 +163,7 @@ or project).
 | `src/model` | File schemas (zod) and the fixed statuses and priorities |
 | `src/data` | The store, pure selectors (filter, group, sort), `actions.ts`, the save queue |
 | `src/github` | Every call to GitHub (REST and GraphQL), with errors in plain words |
-| `src/sync` | The browser copy, the save and pull loop, merging, renumbering |
+| `src/sync` | The browser copy, the save and pull loop, merging, renumbering, save pacing, the leading tab |
 | `src/session.ts` | Who is signed in, which workspace is open (localStorage) |
 | `src/features/onboarding` | Sign-in, the join wizard, choosing and creating workspaces |
 | `src/features/*` | Screens, one folder per area (issues, views, projects, inbox, import, help…) |
@@ -147,6 +172,16 @@ or project).
 | `tests` | `bun test` for the pure logic |
 
 Routes use the URL hash (`#/team/ENG/issues/active`, `#/issue/ENG-12`) because GitHub Pages serves a single file.
+
+## Keeping it fast
+
+- The store keeps a separate object per kind of thing. Applying changed files copies only the kinds they touch, so
+  a label change doesn't redraw issue lists.
+- Sub-issue counters come from one index per version of the issues (`childIndex` in `src/data/select.ts`), not a
+  scan per row.
+- The issue title saves a moment after you stop typing, not on every key.
+- The editor and the Markdown formatter load on their own, after the rest of the app (the editor a moment after the
+  workspace opens). Code blocks colour a short list of languages (`src/editor/languages.ts`).
 
 ## Main libraries
 

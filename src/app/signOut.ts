@@ -1,11 +1,12 @@
 import { useData, EMPTY } from '@/data/store'
 import { resetProjection } from '@/data/project'
 import { useSession } from '@/session'
-import { setWorkspace } from '@/sync/engine'
+import { setWorkspace, workspace } from '@/sync/engine'
 import { wipeAllCopies } from '@/sync/local'
 
 /** Forget the key and every workspace copy in this browser, then start over at the welcome screen. */
 export async function signOutEverywhere() {
+  workspace()?.restartOtherTabs() // other tabs with this workspace start over too
   setWorkspace(null)
   await wipeAllCopies()
   resetProjection()

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { generateKeyBetween } from 'fractional-indexing'
 import { sampleData } from '@/data/sample'
-import { childProgress, groupIssues, inTab, matches, nestChildren, projectProgress } from '@/data/select'
+import { childIndex, groupIssues, inTab, matches, nestChildren, projectProgress } from '@/data/select'
 import { findByRef, issueRef } from '@/data/store'
 import { DEFAULT_DISPLAY } from '@/data/displays'
 import type { Issue } from '@/model/schema'
@@ -88,7 +88,12 @@ describe('sub-issues', () => {
     expect(nestChildren([a, b]).length).toBe(2)
   })
   test('counter counts done children', () => {
-    expect(childProgress('sample-01', issues)).toEqual({ done: 1, total: 4 })
+    expect(childIndex(data.issues).get('sample-01')).toEqual({ done: 1, total: 4 })
+    expect(childIndex(data.issues).get('sample-02')).toBeUndefined()
+  })
+  test('counters are built once per version of the issues', () => {
+    expect(childIndex(data.issues)).toBe(childIndex(data.issues))
+    expect(childIndex({ ...data.issues })).not.toBe(childIndex(data.issues))
   })
   test('project progress leaves canceled out', () => {
     const p = projectProgress('p-insights', issues)

@@ -4,19 +4,19 @@ import { Link } from 'wouter'
 import { ChevronDown, Plus } from 'lucide-react'
 import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
-import { childProgress, nestChildren, type Group } from '@/data/select'
+import { nestChildren, type Group } from '@/data/select'
 import { issueRef, useData } from '@/data/store'
 import type { Issue } from '@/model/schema'
 import { cn } from '@/lib/utils'
 import { PriorityIcon, StatusIcon } from './icons'
 import { GroupIcon } from './GroupIcon'
 import { shortDate } from './format'
+import { SubIssueCount } from './SubIssueCount'
 import { TitleText } from './TitleText'
 
-export function IssueRow({ issue, depth = 0, all }: { issue: Issue; depth?: number; all: Issue[] }) {
+export function IssueRow({ issue, depth = 0 }: { issue: Issue; depth?: number }) {
   const assignee = useData((s) => (issue.assignee ? s.people[issue.assignee] : undefined))
   const labels = useData((s) => s.labels)
-  const kids = childProgress(issue.id, all)
   const closed = issue.status === 'done' || issue.status === 'canceled' || issue.status === 'duplicate'
   return (
     <Link
@@ -30,11 +30,7 @@ export function IssueRow({ issue, depth = 0, all }: { issue: Issue; depth?: numb
       <span className={cn('min-w-0 truncate', closed && 'text-muted-foreground')}>
         <TitleText title={issue.title} />
       </span>
-      {kids.total > 0 && (
-        <span className="shrink-0 rounded-full border px-2 text-xs leading-5 text-muted-foreground tabular-nums">
-          {kids.done}/{kids.total}
-        </span>
-      )}
+      <SubIssueCount id={issue.id} className="shrink-0" />
       <span className="ml-auto flex shrink-0 items-center gap-2">
         {issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)}
         <PersonAvatar person={assignee} login={issue.assignee} />
@@ -44,7 +40,7 @@ export function IssueRow({ issue, depth = 0, all }: { issue: Issue; depth?: numb
   )
 }
 
-function GroupSection({ group, all, onAdd }: { group: Group; all: Issue[]; onAdd?: (group: Group) => void }) {
+function GroupSection({ group, onAdd }: { group: Group; onAdd?: (group: Group) => void }) {
   const [open, setOpen] = useState(true)
   const rows = useMemo(() => nestChildren(group.issues), [group.issues])
   return (
@@ -65,7 +61,7 @@ function GroupSection({ group, all, onAdd }: { group: Group; all: Issue[]; onAdd
       {open && (
         <div className="py-1">
           {rows.map(({ issue, depth }) => (
-            <IssueRow key={issue.id} issue={issue} depth={depth} all={all} />
+            <IssueRow key={issue.id} issue={issue} depth={depth} />
           ))}
         </div>
       )}
@@ -73,13 +69,13 @@ function GroupSection({ group, all, onAdd }: { group: Group; all: Issue[]; onAdd
   )
 }
 
-export function IssueList({ groups, all, onAdd }: { groups: Group[]; all: Issue[]; onAdd?: (group: Group) => void }) {
+export function IssueList({ groups, onAdd }: { groups: Group[]; onAdd?: (group: Group) => void }) {
   return (
     <div className="flex flex-col gap-1">
       {groups
         .filter((g) => g.issues.length > 0)
         .map((g) => (
-          <GroupSection key={g.key} group={g} all={all} onAdd={onAdd} />
+          <GroupSection key={g.key} group={g} onAdd={onAdd} />
         ))}
     </div>
   )
