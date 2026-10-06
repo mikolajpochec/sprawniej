@@ -45,6 +45,9 @@ export interface LIssue {
   description: string | null
   priority: number
   sortOrder: number
+  /** "2026-10-31" */
+  dueDate?: string | null
+  estimate?: number | null
   createdAt: string
   updatedAt: string
   completedAt: string | null
@@ -164,7 +167,7 @@ export async function readTeams(key: string, teamIds: string[], progress: (text:
   const issues = await all<LIssue>(
     key,
     `query($after: String, $teams: [ID!]) { issues(first: 50, after: $after, filter: { team: { id: { in: $teams } } }) { nodes {
-      id number title description priority sortOrder createdAt updatedAt completedAt canceledAt
+      id number title description priority sortOrder dueDate estimate createdAt updatedAt completedAt canceledAt
       state { name type } team { id } assignee { id } creator { id } project { id } parent { id } labels(first: 20) { nodes { id } }
     } ${PAGE} } }`,
     { teams: teamIds },

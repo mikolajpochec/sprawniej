@@ -2,32 +2,37 @@
  * One issue: title, description, sub-issues and comments on the left, properties on the right.
  * Everything saves by itself; there is no Save button anywhere (CLAUDE.md, golden rules).
  */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'wouter'
 import { useShallow } from 'zustand/react/shallow'
-import { Link2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Archive, Bell, BellOff, Link2, MoreHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCrumbs } from '@/app/chrome'
 import { NotFound } from '@/app/NotFound'
 import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
-import { Picker } from '@/components/Picker'
-import { createLabel, deleteIssue, markRead, moveIssueToTeam, updateIssue } from '@/data/actions'
-import { isUnread } from '@/data/select'
-import { findByRef, issueRef, useData } from '@/data/store'
+import { Picker, type PickerItem } from '@/components/Picker'
+import { archiveIssues, createLabel, deleteIssue, markRead, moveIssueToTeam, setFollowers, subscribe, updateIssue } from '@/data/actions'
+import { followers } from '@/data/notify'
+import { isClosed, isUnread } from '@/data/select'
+import { loadArchive } from '@/data/project'
+import { findArchivedByRef, findByRef, issueRef, useData } from '@/data/store'
 import { Editor } from '@/editor/LazyEditor'
 import { useMedia } from '@/lib/useNarrow'
 import { cn } from '@/lib/utils'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { PriorityIcon, StatusIcon } from './icons'
+import { ArchivedIssuePage } from './ArchivedIssuePage'
 import { Comments } from './Comments'
-import { shortDate } from './format'
+import { DueChip, DueDatePicker, EstimateIcon } from './DueDate'
+import { estimateName, shortDate } from './format'
 import { SubIssues } from './SubIssues'
 import { TitleField } from './TitleField'
-import { priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
+import { estimateItems, priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
 
 function Property({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -45,7 +50,14 @@ export function IssuePage() {
   const { ref = '' } = useParams<{ ref: string }>()
   const [, navigate] = useLocation()
   const issue = useData((s) => findByRef(s.issues, ref))
-  const team = useData((s) => (issue ? s.teams[issue.team] : undefined))
+  const archived = useData((s) => (issue ? undefined : findArchivedByRef(s, ref)))
+  const archiveLoaded = useData((s) => s.archiveLoaded)
+  // not an active issue: maybe an archived one (read only when needed)
+  useEffect(() => {
+    if (!issue && !archiveLoaded) loadArchive()
+  }, [issue, archiveLoaded])
+  const shown = issue ?? archived
+  const team = useData((s) => (shown ? s.teams[shown.team] : undefined))
   const teams = useData(useShallow((s) => Object.values(s.teams)))
   const people = useData((s) => s.people)
   const labels = useData((s) => s.labels)
@@ -57,14 +69,19 @@ export function IssuePage() {
     if (unread.length) markRead(unread)
   }, [unread])
   const peopleItems = usePeopleItems()
+  const followerItems = useMemo(() => peopleItems.filter((p) => p.value !== null) as PickerItem<string>[], [peopleItems])
+  const comments = useData((s) => (issue ? s.comments[issue.id] : undefined))
+  const me = useData((s) => s.me?.login)
+  const followerList = useMemo(() => (issue ? followers(issue, comments ?? [], people) : []), [issue, comments, people])
+  const following = !!me && followerList.includes(me)
   const labelItems = useLabelItems()
   const projectItems = useProjectItems(issue?.team)
   const parentItems = useParentItems(issue)
   const [confirmDelete, setConfirmDelete] = useState(false)
   // under 1024 px the properties sit under the title instead of in a column of their own
   const stacked = useMedia('(max-width: 1023px)')
-  useCrumbs(issue && team ? [{ label: `${team.emoji} ${team.name}`, href: `/team/${team.key}/issues` }, { label: issueRef(issue) }] : [])
-  if (!issue) return <NotFound />
+  useCrumbs(shown && team ? [{ label: `${team.emoji} ${team.name}`, href: `/team/${team.key}/issues` }, { label: issueRef(shown) }] : [])
+  if (!issue) return archived ? <ArchivedIssuePage issue={archived} /> : archiveLoaded ? <NotFound /> : null
   const assignee = issue.assignee ? people[issue.assignee] : undefined
 
   const properties = (
@@ -137,6 +154,48 @@ export function IssuePage() {
           </button>
         </Picker>
       </Property>
+      <Property label="Due date">
+        <DueDatePicker value={issue.dueDate} onChange={(dueDate) => updateIssue(issue.id, { dueDate })}>
+          <button type="button" className={pick}>
+            {issue.dueDate ? (
+              <DueChip day={issue.dueDate} closed={isClosed(issue)} className="border-0 px-0 text-[15px]" />
+            ) : (
+              <span className="text-muted-foreground">None</span>
+            )}
+          </button>
+        </DueDatePicker>
+      </Property>
+      <Property label="Estimate">
+        <Picker placeholder="Estimate…" items={estimateItems(issue.estimate)} value={issue.estimate ?? null} onSelect={(estimate) => updateIssue(issue.id, { estimate })}>
+          <button type="button" className={pick}>
+            {issue.estimate != null ? (
+              <>
+                <EstimateIcon /> {estimateName(issue.estimate)}
+              </>
+            ) : (
+              <span className="text-muted-foreground">None</span>
+            )}
+          </button>
+        </Picker>
+      </Property>
+      <Property label="Subscribers">
+        <Picker multiple placeholder="Who hears about it…" items={followerItems} value={followerList} onSelect={(logins) => setFollowers(issue.id, logins)}>
+          <button type="button" className={pick}>
+            {followerList.length ? (
+              <>
+                <span className="flex -space-x-1.5">
+                  {followerList.slice(0, 5).map((l) => (
+                    <PersonAvatar key={l} person={people[l]} login={l} className="ring-2 ring-background" />
+                  ))}
+                </span>
+                <span className="text-muted-foreground tabular-nums">{followerList.length}</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No one</span>
+            )}
+          </button>
+        </Picker>
+      </Property>
       {teams.length > 1 && (
         <Property label="Team">
           <Picker
@@ -174,6 +233,14 @@ export function IssuePage() {
           )}
           <div className="flex items-start gap-2">
             <TitleField key={issue.id} id={issue.id} value={issue.title} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label={following ? 'Unsubscribe' : 'Subscribe'} aria-pressed={following} onClick={() => subscribe(issue.id, !following)}>
+                  {following ? <Bell /> : <BellOff className="text-muted-foreground" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{following ? 'You hear about comments and status changes. Click to stop.' : 'Hear about comments and status changes'}</TooltipContent>
+            </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon-sm" aria-label="More actions">
@@ -188,6 +255,16 @@ export function IssuePage() {
                 >
                   <Link2 /> Copy link
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    const n = archiveIssues([issue.id])
+                    toast(`Archived ${issueRef(issue)}${n > 1 ? ` and ${n - 1} sub-issue${n > 2 ? 's' : ''}` : ''}`, {
+                      description: 'It’s out of every list. You can still open it from here or from search.',
+                    })
+                  }}
+                >
+                  <Archive /> Archive
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
                   <Trash2 /> Delete issue
@@ -199,7 +276,7 @@ export function IssuePage() {
           <Editor key={issue.id} value={issue.description} onChange={(description) => updateIssue(issue.id, { description })} className="mt-4" />
 
           <SubIssues issue={issue} />
-          <Comments issue={issue.id} />
+          <Comments issue={issue} />
         </div>
       </article>
 

@@ -15,6 +15,7 @@ people/<login>.json                      one person (written by that person)
 labels/<id>.json                         one label
 teams/<KEY>/team.json                    one team
 teams/<KEY>/issues/<id>.md               one issue
+teams/<KEY>/archive/<YYYY-MM>.jsonl      archived issues of that month, with their comments (one per line)
 teams/<KEY>/comments/<issueId>/<id>.md   one comment (written by its author)
 projects/<id>.json                       one project
 views/<id>.json                          one saved view
@@ -49,12 +50,15 @@ The folder name is the team key, which starts issue numbers (`ENG-12`). Keys are
 starting with a letter.
 
 ```json
-{ "key": "ENG", "name": "Engineering", "emoji": "🛠️", "members": ["mikolajpochec", "ania-k"], "createdAt": "…", "lastNumber": 41 }
+{ "key": "ENG", "name": "Engineering", "emoji": "🛠️", "members": ["mikolajpochec", "ania-k"], "createdAt": "…", "lastNumber": 41, "autoArchive": 6 }
 ```
 
-`lastNumber` (optional) is the highest number of an issue that was deleted or moved to another team. A new issue
+`lastNumber` (optional) is the highest number of an issue that was deleted, archived or moved to another team. A new issue
 gets one more than the highest of all the team's issues and `lastNumber`, so a number is never given out twice and
-an old link never opens a different issue.
+an old link never opens a different issue. When two saves meet, the higher `lastNumber` wins.
+
+`autoArchive` (optional) is how many months after an issue is finished it gets archived: `1`, `3`, `6`, `12`, or `0`
+for never. Missing means 6.
 
 ## teams/ENG/issues/01J9Z….md
 
@@ -71,6 +75,8 @@ assignee: ania-k
 labels: [insights]
 project: 01J9ZP…
 parent: null
+dueDate: 2026-10-31
+estimate: 3
 sortOrder: a0V
 createdBy: mikolajpochec
 createdAt: 2026-10-02T09:12:00.000Z
@@ -94,8 +100,35 @@ Charts should be easier to read at a glance.
 | `sortOrder` | Position in lists and boards ([fractional index](architecture.md#ordering-and-drag-n-drop)) |
 | `completedAt` | When it moved to Done, else `null` |
 | `duplicateOf` | Issue id, only for `duplicate` |
+| `dueDate` | Optional. A day, `2026-10-31`, with no time: the same day for everyone. |
+| `estimate` | Optional. Points; the app offers 1, 2, 3, 5 and 8, and keeps any other number it finds. |
+| `subscribers` | Optional. Logins that asked to follow the issue. |
+| `unsubscribed` | Optional. Logins that asked not to follow it. |
+
+People follow an issue by themselves when they created it, are assigned to it, commented on it or were mentioned in
+it; `subscribers` adds people to that, and `unsubscribed` takes people out. Changing these doesn't change `updatedAt`.
+
+There is no history field: an issue's history is read from the repo's own history (each save is a commit), by
+comparing one version of the file with the next.
 
 Moving an issue to another team moves the file to that team's folder and gives it a new number there.
+
+## teams/ENG/archive/2026-03.jsonl
+
+Archived issues, packed so that old work costs one line instead of an issue file plus a file per comment. One JSON
+object per line, sorted by id: the issue's fields as above, its `description`, who archived it and when, and its
+comments.
+
+```json
+{"id":"01J9ZQ…","number":12,"title":"Simplify Insights graphs","status":"done",…,"description":"Charts should…","archivedAt":"2026-09-04T08:00:00.000Z","archivedBy":"ania-k","comments":[{"id":"01J9ZR…","issue":"01J9ZQ…","author":"zosia","createdAt":"…","body":"Looks good"}]}
+```
+
+The month is when the issue was finished (`completedAt`, or `updatedAt` for canceled ones), so two people archiving
+the same issue pick the same file. An issue archived before it was finished goes in the month it was archived.
+Archiving deletes the issue file and its comment files; restoring writes them back and takes the line out (a file
+with no lines left is deleted). Archived issues keep their numbers, and `lastNumber` remembers them. If an issue has
+both a file in `issues/` and a line here (someone edited it while another person archived it), the file wins and the
+line is dropped at the next tidy-up.
 
 ## teams/ENG/comments/<issueId>/<id>.md
 

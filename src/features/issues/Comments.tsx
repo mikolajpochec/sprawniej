@@ -1,6 +1,6 @@
 /**
- * The comment thread under an issue. Write with the same editor as descriptions (@ mentions people, who then hear
- * about it in their Inbox). Your own comments can be edited (saved as you type) or deleted. A comment you haven't
+ * The activity under an issue: comments, with the issue's history between them (who changed what, and when).
+ * Write with the same editor as descriptions (@ mentions people, who then hear about it in their Inbox). Your own comments can be edited (saved as you type) or deleted. A comment you haven't
  * sent yet stays in this browser, so leaving the page doesn't lose it.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -11,11 +11,13 @@ import { Markdown } from '@/components/Markdown'
 import { createComment, deleteComment, updateComment } from '@/data/actions'
 import { useData } from '@/data/store'
 import { Editor } from '@/editor/LazyEditor'
-import type { Comment } from '@/model/schema'
+import type { ArchivedIssue, Comment, Issue } from '@/model/schema'
 import { Button } from '@/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { shortDate } from './format'
+import { CreatedLine, HistoryLine } from './HistoryLine'
 import { takeJump } from './jumpTo'
+import { useIssueHistory } from './useHistory'
 
 const draftKey = (issue: string) => `sprawniej:comment-draft:${issue}`
 
@@ -107,9 +109,13 @@ function NewComment({ issue }: { issue: string }) {
   )
 }
 
-export function Comments({ issue }: { issue: string }) {
-  const comments = useData((s) => s.comments[issue])
+/** comments and history, oldest first, with the box for a new comment at the end */
+export function Comments({ issue, archived }: { issue: Issue; archived?: ArchivedIssue }) {
+  const live = useData((s) => s.comments[issue.id])
+  // an archived issue keeps its comments with it, and they can't change
+  const comments = archived ? archived.comments : live
   const me = useData((s) => s.me?.login)
+  const history = useIssueHistory(issue)
   useEffect(() => {
     const id = takeJump()
     const el = id && document.getElementById(`comment-${id}`)
@@ -117,18 +123,20 @@ export function Comments({ issue }: { issue: string }) {
     el.scrollIntoView({ block: 'center' })
     el.classList.add('ring-2', 'ring-ring/60')
     setTimeout(() => el.classList.remove('ring-2', 'ring-ring/60'), 1600)
-  }, [issue])
+  }, [issue.id])
+  const items = [
+    ...(comments ?? []).map((c) => ({ at: c.createdAt, key: c.id, node: <CommentItem key={c.id} comment={c} mine={!archived && c.author === me} /> })),
+    ...(history.events ?? []).map((e, n) => ({ at: e.at, key: `h${n}`, node: <HistoryLine key={`h${n}`} event={e} /> })),
+  ].sort((a, b) => a.at.localeCompare(b.at))
   return (
     <section className="mt-10">
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">Comments</h2>
-      {!!comments?.length && (
-        <ol className="flex flex-col gap-4">
-          {comments.map((c) => (
-            <CommentItem key={c.id} comment={c} mine={c.author === me} />
-          ))}
-        </ol>
-      )}
-      <NewComment key={issue} issue={issue} />
+      <h2 className="mb-3 text-sm font-medium text-muted-foreground">Activity</h2>
+      <ol className="flex flex-col gap-4">
+        <CreatedLine by={issue.createdBy} at={issue.createdAt} />
+        {items.map((i) => i.node)}
+      </ol>
+      {history.failed && <p className="mt-3 px-1 text-xs text-muted-foreground">Earlier changes show here when you’re online.</p>}
+      {!archived && <NewComment key={issue.id} issue={issue.id} />}
     </section>
   )
 }

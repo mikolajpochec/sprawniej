@@ -67,6 +67,23 @@ describe('grouping', () => {
     expect(groups.at(-1)!.title).toBe('No assignee')
     expect(groups.reduce((n, g) => n + g.issues.length, 0)).toBe(issues.length)
   })
+  test('a board gets every status; the ones the tab leaves out are empty and marked outside', () => {
+    const active = issues.filter((i) => inTab(i, 'active'))
+    const groups = groupIssues(active, DEFAULT_DISPLAY, ctx, 'active', true)
+    expect(groups.map((g) => g.key)).toEqual(['backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled', 'duplicate'])
+    expect(groups.filter((g) => g.outside).map((g) => g.key)).toEqual(['backlog', 'done', 'canceled', 'duplicate'])
+    expect(groups.filter((g) => g.outside).every((g) => g.issues.length === 0)).toBe(true)
+    const off = groupIssues(issues, { ...DEFAULT_DISPLAY, showCompleted: false }, ctx, 'all', true)
+    expect(off.filter((g) => g.outside).map((g) => g.key)).toEqual(['done', 'canceled', 'duplicate'])
+  })
+  test('a board grouped by person offers everyone, by project only open projects of the team', () => {
+    const one = issues.filter((i) => i.assignee).slice(0, 1)
+    const people = groupIssues(one, { ...DEFAULT_DISPLAY, grouping: 'assignee' }, ctx, 'all', true)
+    expect(people.length).toBe(Object.keys(data.people).length + 1)
+    const projects = groupIssues([], { ...DEFAULT_DISPLAY, grouping: 'project' }, { ...ctx, team: 'ENG' }, 'all', true)
+    const open = Object.values(data.projects).filter((p) => !['completed', 'canceled'].includes(p.status) && (!p.teams.length || p.teams.includes('ENG')))
+    expect(projects.length).toBe(open.length + 1)
+  })
   test('manual order uses plain string order of sortOrder', () => {
     const a = issues[0]
     const moved: Issue = { ...issues[5], status: a.status, sortOrder: generateKeyBetween(null, a.sortOrder) }
@@ -99,5 +116,14 @@ describe('sub-issues', () => {
     const p = projectProgress('p-insights', issues)
     expect(p.total).toBe(6)
     expect(p.done).toBe(1)
+  })
+})
+
+describe('due dates', () => {
+  test('ordering by due date: soonest first, none last', () => {
+    const [a, b, c] = issues.slice(0, 3)
+    const list = [{ ...a, dueDate: null }, { ...b, dueDate: '2026-12-01' }, { ...c, dueDate: '2026-11-01' }]
+    const groups = groupIssues(list, { ...DEFAULT_DISPLAY, grouping: 'none', ordering: 'due' }, ctx)
+    expect(groups[0].issues.map((i) => i.id)).toEqual([c.id, b.id, a.id])
   })
 })

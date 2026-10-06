@@ -45,6 +45,9 @@ export const labelSchema = z
   .passthrough()
 export type Label = z.infer<typeof labelSchema>
 
+/** months after which finished issues are archived, unless a team says otherwise (team.autoArchive) */
+export const AUTO_ARCHIVE_MONTHS = 6
+
 /** teams/<KEY>/team.json */
 export const teamSchema = z
   .object({
@@ -53,8 +56,10 @@ export const teamSchema = z
     emoji: z.string(),
     members: z.array(login),
     createdAt: iso,
-    /** the highest number a deleted or moved-away issue had, so numbers are never given out twice */
+    /** the highest number a deleted, moved-away or archived issue had, so numbers are never given out twice */
     lastNumber: z.number().int().optional(),
+    /** finished issues are archived this many months after they were finished; 0 = never; missing = 6 */
+    autoArchive: z.number().int().nonnegative().optional(),
   })
   .passthrough()
 export type Team = z.infer<typeof teamSchema>
@@ -71,6 +76,10 @@ export const issueFieldsSchema = z
     labels: z.array(z.string()),
     project: z.string().nullable(),
     parent: z.string().nullable(),
+    /** a day, "2026-10-31" (no time: it's the same day for everyone) */
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    /** how big it is, in points (see ESTIMATES) */
+    estimate: z.number().nonnegative().nullable().optional(),
     /** fractional index (see fractional-indexing): a drag rewrites only the moved issue */
     sortOrder: z.string(),
     createdBy: login,
@@ -78,6 +87,10 @@ export const issueFieldsSchema = z
     updatedAt: iso,
     completedAt: iso.nullable().optional(),
     duplicateOf: z.string().nullable().optional(),
+    /** people who asked to follow it, on top of those who follow it anyway (see notify.ts, followers) */
+    subscribers: z.array(login).optional(),
+    /** people who asked not to follow it */
+    unsubscribed: z.array(login).optional(),
   })
   .passthrough()
 export type IssueFields = z.infer<typeof issueFieldsSchema>
@@ -103,6 +116,24 @@ export interface Comment extends z.infer<typeof commentFieldsSchema> {
   body: string
 }
 
+/**
+ * One line of teams/<KEY>/archive/<YYYY-MM>.jsonl: an archived issue with its description and comments, packed
+ * together so old issues cost one small part of one file instead of a file each.
+ */
+export const archivedIssueSchema = issueFieldsSchema
+  .extend({
+    description: z.string(),
+    archivedAt: iso,
+    archivedBy: login,
+    comments: z.array(commentFieldsSchema.extend({ body: z.string() }).passthrough()),
+  })
+  .passthrough()
+export interface ArchivedIssue extends Issue {
+  archivedAt: string
+  archivedBy: string
+  comments: Comment[]
+}
+
 export const PROJECT_STATUSES = ['backlog', 'planned', 'in_progress', 'paused', 'completed', 'canceled'] as const
 
 /** projects/<id>.json */
@@ -123,7 +154,7 @@ export type Project = z.infer<typeof projectSchema>
 
 export const GROUPINGS = ['status', 'assignee', 'priority', 'project', 'none'] as const
 export type Grouping = (typeof GROUPINGS)[number]
-export const ORDERINGS = ['manual', 'priority', 'updated', 'created'] as const
+export const ORDERINGS = ['manual', 'priority', 'due', 'updated', 'created'] as const
 export type Ordering = (typeof ORDERINGS)[number]
 
 export const filtersSchema = z

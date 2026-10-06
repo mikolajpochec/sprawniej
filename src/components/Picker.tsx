@@ -5,6 +5,7 @@
  */
 import { useState, type ReactNode } from 'react'
 import { Check, Plus } from 'lucide-react'
+import { defaultFilter } from 'cmdk'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,13 @@ type Props<V> = Common<V> & ({ multiple?: false; value: V; onSelect: (v: V) => v
 
 const keyOf = (v: unknown) => JSON.stringify(v)
 
+/** cmdk's usual matching, except that typing an item's exact keyword ("ENG-1") puts it first, ahead of ENG-12 */
+const exactFirst = (value: string, search: string, keywords?: string[]) => {
+  const q = search.trim().toLowerCase()
+  if (q && keywords?.some((k) => k.toLowerCase() === q)) return 1
+  return defaultFilter(value, search, keywords) * 0.99
+}
+
 export function Picker<V>(props: Props<V>) {
   const { items, placeholder, children, onCreate, createLabel, align = 'start', asChild = true } = props
   const [ownOpen, setOwnOpen] = useState(false)
@@ -63,13 +71,13 @@ export function Picker<V>(props: Props<V>) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild={asChild}>{children}</PopoverTrigger>
       <PopoverContent align={align} className="w-64 p-0" onClick={(e) => e.stopPropagation()}>
-        <Command>
+        <Command filter={exactFirst}>
           <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
           <CommandList>
             <CommandEmpty>{onCreate ? 'Nothing yet. Type a name to create it.' : 'Nothing found.'}</CommandEmpty>
             <CommandGroup>
               {items.map((i) => (
-                <CommandItem key={keyOf(i.value)} value={`${i.label} ${(i.keywords ?? []).join(' ')} ${keyOf(i.value)}`} onSelect={() => pick(i.value)}>
+                <CommandItem key={keyOf(i.value)} value={`${i.label} ${(i.keywords ?? []).join(' ')} ${keyOf(i.value)}`} keywords={i.keywords} onSelect={() => pick(i.value)}>
                   {i.icon}
                   <span className="truncate">{i.label}</span>
                   {i.hint && <span className="ml-auto truncate text-xs text-muted-foreground">{i.hint}</span>}

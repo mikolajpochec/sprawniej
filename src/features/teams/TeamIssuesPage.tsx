@@ -6,6 +6,7 @@ import { useCrumbs } from '@/app/chrome'
 import { EmptyState } from '@/components/EmptyState'
 import { LinkTabs } from '@/components/Tabs'
 import { IssuesView } from '@/features/issues/IssuesView'
+import { ArchiveList } from './ArchiveList'
 import { NotFound } from '@/app/NotFound'
 import { useData } from '@/data/store'
 import type { IssueTab } from '@/model/status'
@@ -23,6 +24,8 @@ export function TeamIssuesPage() {
   useCrumbs(team ? [{ label: `${team.emoji} ${team.name}` }, { label: 'Issues' }] : [])
   if (!team) return <NotFound />
   const base = `/team/${team.key}/issues`
+  const tabs = [...TABS.map((t) => ({ href: `${base}/${t.tab}`, label: t.label })), { href: `${base}/archived`, label: 'Archived' }]
+  if (tab === 'archived') return <ArchiveList team={team.key} left={<LinkTabs current={`${base}/archived`} tabs={tabs} />} />
   return (
     <IssuesView
       page={`team:${team.key}:${current}`}
@@ -31,7 +34,7 @@ export function TeamIssuesPage() {
       viewScope={team.key}
       tab={current}
       baseDisplay={{ showCompleted: current === 'all' }}
-      left={<LinkTabs current={`${base}/${current}`} tabs={TABS.map((t) => ({ href: `${base}/${t.tab}`, label: t.label }))} />}
+      left={<LinkTabs current={`${base}/${current}`} tabs={tabs} />}
       empty={
         <EmptyState
           icon={<SquareStack />}

@@ -31,6 +31,9 @@ export function compareIssues(ordering: Ordering): (a: Issue, b: Issue) => numbe
   switch (ordering) {
     case 'priority':
       return (a, b) => PRIORITY_RANK.get(a.priority)! - PRIORITY_RANK.get(b.priority)! || byOrder(a, b)
+    case 'due':
+      // soonest first; no due date last
+      return (a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') || byOrder(a, b)
     case 'updated':
       return (a, b) => b.updatedAt.localeCompare(a.updatedAt)
     case 'created':
@@ -52,29 +55,44 @@ export interface Group {
   value: string | number | null
   title: string
   issues: Issue[]
+  /** a group this page leaves out (Done on the Active tab): never a column, only somewhere to drop an issue */
+  outside?: boolean
 }
 
 interface GroupCtx {
   people: Record<string, Person>
   projects: Record<string, Project>
+  /** the page's team, if it has one: only its projects become extra groups */
+  team?: string
+  /** issues shown even though the page would leave them out (just dropped on Done from the Active board) */
+  keep?: ReadonlySet<string>
 }
 
 /**
  * Split issues into groups in display order. Grouping by status always shows every status the tab covers,
  * even empty ones, so there is somewhere to drop an issue.
+ *
+ * `everyGroup` (the board) adds a group for every other place an issue could go: statuses this tab leaves out
+ * (marked `outside`), people with nothing assigned, open projects with nothing in them. The board shows empty ones
+ * under "Hidden columns" as places to drop a card; one that gets an issue becomes a column.
  */
-export function groupIssues(issues: Issue[], display: Display, ctx: GroupCtx, tab: IssueTab = 'all'): Group[] {
+export function groupIssues(issues: Issue[], display: Display, ctx: GroupCtx, tab: IssueTab = 'all', everyGroup = false): Group[] {
   const sorted = issues
-    .filter((i) => (display.showCompleted || !isClosed(i)) && (display.showSubIssues || !i.parent))
+    .filter((i) => (display.showCompleted || !isClosed(i) || ctx.keep?.has(i.id)) && (display.showSubIssues || !i.parent))
     .sort(compareIssues(display.ordering))
   switch (display.grouping) {
     case 'none':
       return [{ key: 'all', value: null, title: 'All issues', issues: sorted }]
     case 'status': {
       const groups = TAB_GROUPS[tab]
-      return STATUSES.filter((s) => groups.includes(s.group))
-        .filter((s) => display.showCompleted || (s.group !== 'completed' && s.group !== 'canceled'))
-        .map((s) => ({ key: s.id, value: s.id, title: s.name, issues: sorted.filter((i) => i.status === s.id) }))
+      const shown = (s: (typeof STATUSES)[number]) => groups.includes(s.group) && (display.showCompleted || (s.group !== 'completed' && s.group !== 'canceled'))
+      return STATUSES.filter((s) => everyGroup || shown(s)).map((s) => ({
+        key: s.id,
+        value: s.id,
+        title: s.name,
+        issues: sorted.filter((i) => i.status === s.id),
+        ...(!shown(s) && { outside: true }),
+      }))
     }
     case 'priority':
       return PRIORITY_ORDER.map((p: Priority) => ({
@@ -84,7 +102,8 @@ export function groupIssues(issues: Issue[], display: Display, ctx: GroupCtx, ta
         issues: sorted.filter((i) => i.priority === p),
       }))
     case 'assignee': {
-      const logins = [...new Set(sorted.map((i) => i.assignee).filter((l): l is string => !!l))].sort((a, b) =>
+      const assigned = sorted.map((i) => i.assignee).filter((l): l is string => !!l)
+      const logins = [...new Set(everyGroup ? [...assigned, ...Object.keys(ctx.people)] : assigned)].sort((a, b) =>
         (ctx.people[a]?.name ?? a).localeCompare(ctx.people[b]?.name ?? b),
       )
       const out: Group[] = logins.map((l) => ({ key: l, value: l, title: ctx.people[l]?.name ?? l, issues: sorted.filter((i) => i.assignee === l) }))
@@ -92,7 +111,12 @@ export function groupIssues(issues: Issue[], display: Display, ctx: GroupCtx, ta
       return out
     }
     case 'project': {
-      const ids = [...new Set(sorted.map((i) => i.project).filter((p): p is string => !!p))]
+      const used = sorted.map((i) => i.project).filter((p): p is string => !!p)
+      const open = Object.values(ctx.projects)
+        .filter((p) => p.status !== 'completed' && p.status !== 'canceled' && (!ctx.team || !p.teams.length || p.teams.includes(ctx.team)))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((p) => p.id)
+      const ids = [...new Set(everyGroup ? [...used, ...open] : used)]
       const out: Group[] = ids.map((id) => ({ key: id, value: id, title: ctx.projects[id]?.name ?? 'Unknown project', issues: sorted.filter((i) => i.project === id) }))
       out.push({ key: 'none', value: null, title: 'No project', issues: sorted.filter((i) => !i.project) })
       return out

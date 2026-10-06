@@ -8,16 +8,16 @@
  */
 import { generateKeyBetween } from 'fractional-indexing'
 import { ulid } from 'ulid'
-import type { Comment, Display, Filters, InboxItem, Issue, Label, Person, Project, ReadState, Team, View } from '@/model/schema'
-import { FORMAT_VERSION } from '@/model/schema'
+import type { ArchivedIssue, Comment, Display, Filters, InboxItem, Issue, Label, Person, Project, ReadState, Team, View } from '@/model/schema'
+import { AUTO_ARCHIVE_MONTHS, FORMAT_VERSION } from '@/model/schema'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { BINARY_PREFIX } from '@/github/api'
 import { workspace } from '@/sync/engine'
-import { commentToFile as commentFile, issueToFile, jsonToFile, paths } from './files'
-import { commentNotes, issueNotes, type Note } from './notify'
+import { archiveMonth, archiveToFile, commentToFile as commentFile, issueToFile, jsonToFile, parseArchive, paths } from './files'
+import { commentNotes, followLists, followers, issueNotes, type Note } from './notify'
 import { changedOnly, keyBetween, keysBetween } from './ordering'
-import { applyFiles, parsedFiles, pathOf } from './project'
-import { isUnread } from './select'
+import { applyFiles, archiveFiles, highestArchived, parsedFiles, pathOf } from './project'
+import { isClosed, isUnread } from './select'
 import { issueRef, useData } from './store'
 
 const now = () => new Date().toISOString()
@@ -34,12 +34,16 @@ const one = (path: string, text: string | null) => new Map([[path, text]])
 
 const SAME_NOTE_WITHIN = 10 * 60_000
 
-/** the same note from me about the same issue, a few minutes ago (typing "@ania", deleting it, typing it again) */
-function toldRecently(to: string, issue: string, type: InboxItem['type'], me: string): boolean {
-  if (type === 'commented') return false
+/**
+ * the same note from me about the same issue, a few minutes ago (typing "@ania", deleting it, typing it again;
+ * dragging an issue back and forth between two statuses)
+ */
+function toldRecently(to: string, issue: string, n: Note, me: string): boolean {
+  if (n.type === 'commented') return false
   const since = new Date(Date.now() - SAME_NOTE_WITHIN).toISOString()
   for (const [, p] of parsedFiles()) {
-    if (p.kind === 'inbox' && p.login === to && p.value.actor === me && p.value.issue === issue && p.value.type === type && !p.value.comment && p.value.at > since) return true
+    const v = p.kind === 'inbox' && p.login === to ? p.value : null
+    if (v && v.actor === me && v.issue === issue && v.type === n.type && v.status === n.status && !v.comment && v.at > since) return true
   }
   return false
 }
@@ -49,7 +53,7 @@ function addNotes(files: Map<string, string | null>, issue: string, notes: Note[
   const me = useData.getState().me?.login
   if (!me) return
   for (const n of notes) {
-    if (!n.comment && toldRecently(n.to, issue, n.type, me)) continue
+    if (!n.comment && toldRecently(n.to, issue, n, me)) continue
     const item: InboxItem = { id: ulid(), type: n.type, issue, actor: me, at: now() }
     if (n.comment) item.comment = n.comment
     if (n.status) item.status = n.status
@@ -66,7 +70,7 @@ function dropNotes(files: Map<string, string | null>, about: (n: InboxItem) => b
 
 /** fields a person can change (Pick, not Omit: Omit drops named keys on passthrough schemas) */
 export type IssuePatch = Partial<
-  Pick<Issue, 'title' | 'description' | 'status' | 'priority' | 'assignee' | 'labels' | 'project' | 'parent' | 'sortOrder' | 'duplicateOf'>
+  Pick<Issue, 'title' | 'description' | 'status' | 'priority' | 'assignee' | 'labels' | 'project' | 'parent' | 'sortOrder' | 'duplicateOf' | 'dueDate' | 'estimate'>
 >
 
 function describe(issue: Issue, patch: IssuePatch): string {
@@ -82,6 +86,8 @@ function describe(issue: Issue, patch: IssuePatch): string {
     const parent = patch.parent ? useData.getState().issues[patch.parent] : undefined
     return parent ? `${ref}: sub-issue of ${issueRef(parent)}` : `${ref}: no parent`
   }
+  if (patch.dueDate !== undefined) return patch.dueDate ? `${ref}: due ${patch.dueDate}` : `${ref}: no due date`
+  if (patch.estimate !== undefined) return patch.estimate === null ? `${ref}: no estimate` : `${ref}: estimate ${patch.estimate}`
   if (patch.title !== undefined) return `${ref}: edit title`
   if (patch.description !== undefined) return `${ref}: edit description`
   if (patch.sortOrder !== undefined) return `${ref}: reorder`
@@ -97,8 +103,40 @@ export function updateIssue(id: string, patch: IssuePatch): void {
   }
   const files = one(paths.issue(next), issueToFile(next))
   const s = useData.getState()
-  if (s.me) addNotes(files, id, issueNotes(old, next, s.me.login, s.people))
+  if (s.me) addNotes(files, id, issueNotes(old, next, s.me.login, s.people, s.comments[id] ?? []))
   save(files, describe(old, patch))
+}
+
+/** Make exactly these people follow an issue (hear about its comments and status changes). */
+export function setFollowers(id: string, logins: string[]) {
+  const s = useData.getState()
+  const old = s.issues[id]
+  if (!old) return
+  const lists = followLists(old, s.comments[id] ?? [], s.people, logins)
+  const next: Issue = { ...old }
+  // empty lists are left out, so the file stays short
+  for (const k of ['subscribers', 'unsubscribed'] as const) {
+    if (lists[k]?.length) next[k] = lists[k]
+    else delete next[k]
+  }
+  if (JSON.stringify([old.subscribers ?? [], old.unsubscribed ?? []]) === JSON.stringify([next.subscribers ?? [], next.unsubscribed ?? []])) return
+  // following isn't an edit: "last changed" stays as it was
+  const me = s.me?.login
+  const was = new Set(followers(old, s.comments[id] ?? [], s.people))
+  const wanted = new Set(logins)
+  const changed = [...new Set([...was, ...wanted])].filter((l) => was.has(l) !== wanted.has(l))
+  const what = changed.length === 1 && changed[0] === me ? (wanted.has(me) ? 'subscribe' : 'unsubscribe') : 'subscribers'
+  save(one(paths.issue(next), issueToFile(next)), `${issueRef(old)}: ${what}`)
+}
+
+/** Follow an issue, or stop following it. */
+export function subscribe(id: string, on: boolean) {
+  const s = useData.getState()
+  const issue = s.issues[id]
+  const me = s.me?.login
+  if (!issue || !me) return
+  const now = followers(issue, s.comments[id] ?? [], s.people)
+  setFollowers(id, on ? [...now, me] : now.filter((l) => l !== me))
 }
 
 /**
@@ -141,12 +179,15 @@ export interface NewIssue {
   labels?: string[]
   project?: string | null
   parent?: string | null
+  dueDate?: string | null
+  estimate?: number | null
 }
 
-/** a team's next issue number: one more than any issue it has, or ever had (deleted numbers aren't reused) */
+/** a team's next issue number: one more than any issue it has, or ever had (deleted and archived ones count too) */
 export function nextNumber(team: string): number {
   const s = useData.getState()
-  const highest = Object.values(s.issues).reduce((max, i) => (i.team === team ? Math.max(max, i.number) : max), s.teams[team]?.lastNumber ?? 0)
+  const floor = Math.max(s.teams[team]?.lastNumber ?? 0, highestArchived(team))
+  const highest = Object.values(s.issues).reduce((max, i) => (i.team === team ? Math.max(max, i.number) : max), floor)
   return highest + 1
 }
 
@@ -187,6 +228,8 @@ export function createIssue(input: NewIssue): Issue {
     labels: input.labels ?? [],
     project: input.project ?? null,
     parent: input.parent ?? null,
+    ...(input.dueDate && { dueDate: input.dueDate }),
+    ...(input.estimate != null && { estimate: input.estimate }),
     sortOrder: parent && parent.team === input.team ? subIssueOrder(inTeam, parent) : generateKeyBetween(null, first),
     createdBy: s.me?.login ?? 'unknown',
     createdAt: now(),
@@ -232,6 +275,138 @@ export function moveIssueToTeam(id: string, team: string): Issue | undefined {
   rememberNumber(files, old)
   save(files, `Move ${issueRef(old)} to ${s.teams[team].name} as ${issueRef(next)}`)
   return next
+}
+
+// ---------- the archive ----------
+
+/** change the records in one archive month file; the change goes into `files` (an emptied file is removed) */
+function editArchive(files: Map<string, string | null>, path: string, team: string, edit: (records: ArchivedIssue[]) => ArchivedIssue[]) {
+  const text = files.has(path) ? files.get(path) : (archiveFiles().get(path) ?? null)
+  files.set(path, archiveToFile(edit(text ? parseArchive(path, team, text) : [])))
+}
+
+/** which archive files hold an issue (each line starts with its id) */
+function archivePathsOf(team: string, id: string): string[] {
+  const out: string[] = []
+  for (const [path, text] of archiveFiles()) if (path.startsWith(`teams/${team}/archive/`) && text.includes(`{"id":"${id}"`)) out.push(path)
+  return out
+}
+
+/**
+ * Put issues away: they leave every list and board but can still be opened, found and brought back. An issue's
+ * sub-issues go with it (unless `auto`, where each finished issue goes on its own). Returns how many were archived.
+ */
+export function archiveIssues(ids: string[], { auto = false } = {}): number {
+  const s = useData.getState()
+  const me = s.me?.login ?? 'unknown'
+  const at = now()
+  const all: Issue[] = []
+  const add = (id: string) => {
+    const issue = s.issues[id]
+    if (!issue || all.includes(issue)) return
+    all.push(issue)
+    if (!auto) for (const child of Object.values(s.issues)) if (child.parent === id) add(child.id)
+  }
+  ids.forEach(add)
+  if (!all.length) return 0
+  const files = new Map<string, string | null>()
+  const byFile = new Map<string, ArchivedIssue[]>()
+  for (const issue of all) {
+    const comments = s.comments[issue.id] ?? []
+    const path = paths.archive(issue.team, archiveMonth(issue, at))
+    byFile.set(path, [...(byFile.get(path) ?? []), { ...issue, archivedAt: at, archivedBy: me, comments }])
+    files.set(pathOf((p) => p.kind === 'issue' && p.value.id === issue.id) ?? paths.issue(issue), null)
+    for (const c of comments) files.set(paths.comment(issue.team, c), null)
+    rememberNumber(files, issue)
+  }
+  for (const [path, records] of byFile) {
+    const ids = new Set(records.map((r) => r.id))
+    editArchive(files, path, records[0].team, (old) => [...old.filter((r) => !ids.has(r.id)), ...records])
+  }
+  const n = all.length
+  save(files, auto ? `Archive ${n} finished issue${n === 1 ? '' : 's'}` : n === 1 ? `Archive ${issueRef(all[0])}` : `Archive ${issueRef(all[0])} and ${n - 1} more`)
+  return n
+}
+
+/** Bring an archived issue back, with its comments, where it was. Needs the archive loaded (loadArchive). */
+export function restoreIssue(id: string): Issue | undefined {
+  const s = useData.getState()
+  const a = s.archive[id]
+  if (!a || s.issues[id]) return s.issues[id]
+  const { archivedAt: _at, archivedBy: _by, comments, ...rest } = a
+  const files = new Map<string, string | null>()
+  for (const path of archivePathsOf(a.team, id)) editArchive(files, path, a.team, (old) => old.filter((r) => r.id !== id))
+  // a number someone took meanwhile (only by editing files by hand) means a new one
+  const taken = Object.values(s.issues).some((i) => i.team === a.team && i.number === a.number)
+  const issue: Issue = { ...rest, number: taken ? nextNumber(a.team) : a.number, updatedAt: now() }
+  files.set(paths.issue(issue), issueToFile(issue))
+  for (const c of comments) files.set(paths.comment(a.team, c), commentFile(c))
+  save(files, `Restore ${issueRef(issue)}`)
+  return issue
+}
+
+/** a moment `months` months before `at`, as ISO */
+function monthsBefore(at: number, months: number): string {
+  const d = new Date(at)
+  d.setMonth(d.getMonth() - months)
+  return d.toISOString()
+}
+
+/**
+ * The daily tidy-up: archives issues finished (and last changed) more than a team's `autoArchive` months ago, a few
+ * hundred per save,
+ * and mends the archive after two people's changes crossed (an archived issue someone edited at the same moment
+ * stays out of the archive; a comment added to it meanwhile joins it). Returns how many were archived.
+ */
+export async function tidyArchive(at = Date.now()): Promise<number> {
+  const s = useData.getState()
+  const due: string[] = []
+  for (const i of Object.values(s.issues)) {
+    const months = s.teams[i.team]?.autoArchive ?? AUTO_ARCHIVE_MONTHS
+    // finished that long ago and untouched since (so a restored issue isn't put straight back)
+    const last = i.completedAt && i.completedAt > i.updatedAt ? i.completedAt : i.updatedAt
+    if (months > 0 && isClosed(i) && last < monthsBefore(at, months)) due.push(i.id)
+  }
+  let done = 0
+  for (let n = 0; n < due.length; n += IMPORT_BATCH) {
+    done += archiveIssues(due.slice(n, n + IMPORT_BATCH), { auto: true })
+    await workspace()?.flush()
+  }
+  mendArchive()
+  return done
+}
+
+/** see tidyArchive */
+function mendArchive() {
+  const s = useData.getState()
+  const files = new Map<string, string | null>()
+  for (const [path, text] of archiveFiles()) {
+    const team = path.split('/')[1]
+    const ids = [...text.matchAll(/^\{"id":"([^"]+)"/gm)].map((m) => m[1])
+    const active = ids.filter((id) => s.issues[id])
+    const loose = ids.filter((id) => !s.issues[id] && s.comments[id]?.length)
+    if (!active.length && !loose.length) continue
+    editArchive(files, path, team, (old) =>
+      old
+        .filter((r) => {
+          if (!active.includes(r.id)) return true
+          // the issue came back: so do its comments that only the archive still has
+          const issue = s.issues[r.id]
+          const here = new Set((s.comments[r.id] ?? []).map((c) => c.id))
+          for (const c of r.comments) if (!here.has(c.id)) files.set(paths.comment(issue.team, { ...c, issue: r.id }), commentFile({ ...c, issue: r.id }))
+          return false
+        })
+        .map((r) => {
+          if (!loose.includes(r.id)) return r
+          // a comment added or edited meanwhile joins the archived issue; the newer copy wins
+          const newer = new Map(s.comments[r.id].map((c) => [c.id, c]))
+          const merged = [...r.comments.filter((c) => !newer.has(c.id)), ...newer.values()]
+          return { ...r, comments: merged.sort((a, b) => a.createdAt.localeCompare(b.createdAt)) }
+        }),
+    )
+    for (const id of loose) for (const c of s.comments[id]) files.set(paths.comment(team, c), null)
+  }
+  if (files.size) save(files, 'Tidy up the archive')
 }
 
 // ---------- comments ----------
@@ -465,6 +640,13 @@ export function createTeam(input: { key: string; name: string; emoji: string }):
   const team: Team = { key: input.key, name: input.name.trim(), emoji: input.emoji, members: me ? [me.login] : [], createdAt: now() }
   save(one(paths.team(team.key), jsonToFile(team)), `Create team ${team.name}`)
   return team
+}
+
+/** how many months after an issue is finished it gets archived; 0 = never */
+export function setAutoArchive(key: string, months: number) {
+  const team = useData.getState().teams[key]
+  if (!team || (team.autoArchive ?? AUTO_ARCHIVE_MONTHS) === months) return
+  save(one(paths.team(key), jsonToFile({ ...team, autoArchive: months })), months ? `${team.name}: archive finished issues after ${months} months` : `${team.name}: never archive finished issues`)
 }
 
 export function joinTeam(key: string) {

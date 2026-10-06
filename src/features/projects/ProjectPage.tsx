@@ -1,7 +1,6 @@
 /** One project: its details (edited in place), how far along it is, and its issues. */
 import { useState } from 'react'
 import { useLocation, useParams } from 'wouter'
-import { useShallow } from 'zustand/react/shallow'
 import { Link2, Plus, SquareStack, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCrumbs } from '@/app/chrome'
@@ -17,12 +16,13 @@ import { IssuesView } from '@/features/issues/IssuesView'
 import { Button } from '@/ui/button'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/ui/dropdown-menu'
 import { ProjectProperties } from './ProjectProperties'
+import { useProgressIssues } from './useProjectIssues'
 
 export function ProjectPage() {
   const { id = '' } = useParams<{ id: string }>()
   const [, navigate] = useLocation()
   const project = useData((s) => s.projects[id])
-  const issues = useData(useShallow((s) => Object.values(s.issues).filter((i) => i.project === id)))
+  const issues = useProgressIssues(id)
   const [confirmDelete, setConfirmDelete] = useState(false)
   useCrumbs(project ? [{ label: 'Projects', href: '/projects' }, { label: `${project.emoji} ${project.name}` }] : [])
   if (!project) return <NotFound />

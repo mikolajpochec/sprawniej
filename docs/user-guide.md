@@ -39,11 +39,13 @@ Your teammates' changes show up on their own, too.
 An **issue** is one piece of work: a task, a bug, an idea. Each has a short ID like `ENG-12` (team + number).
 
 - **Create one:** press **C** anywhere, the pencil next to "Sprawniej" at the top left, or the **+** next to a group.
-  Give it a title; status, priority, assignee, labels, project and parent are optional buttons below.
+  Give it a title; status, priority, assignee, labels, project, parent, due date and estimate are optional buttons
+  below.
   Press `⌘` `Enter` (or `Ctrl` `Enter`) to create it. Tick **Create more** to add several in a row.
 - **Open one:** click it. Change the title, description or any property on the right. It saves by itself.
 - **Labels:** in the labels menu, type a name that doesn't exist yet and choose **Create label**.
 - **Move to another team:** change **Team** on the right. The issue gets that team's next number.
+- **Archive:** the `⋯` button next to the title, then **Archive** (see Archive below).
 - **Delete:** the `⋯` button next to the title, then **Delete issue**.
 - **Links and formatting:** paste a link and it becomes clickable. Select some words and paste a link to turn
   them into a link. Type `**bold**`, `- ` for a list, or `[] ` for a checklist, and it formats as you type.
@@ -72,6 +74,16 @@ in any app. Nothing is ever really lost: every earlier version stays in the work
 
 **Urgent** (orange), **High**, **Medium**, **Low** (fewer bars = lower), or no priority (three dashes).
 
+### Due dates and estimates
+
+- **Due date:** the day it should be done. Pick **Due date** on the right: **Today**, **Tomorrow**, **Next week**,
+  **In two weeks**, or any day in the calendar. Lists and boards show it; it turns amber two days before and red
+  once it's late (unless the issue is finished).
+- **Estimate:** how big it is, in points: 1, 2, 3, 5 or 8. Bigger means more work. Pick **Estimate** on the right,
+  or press `E` on an issue.
+
+To see what's due first, choose **Ordering › Due date** under **Display**.
+
 ### Sub-issues
 
 Big issues can be split into smaller **sub-issues**. The parent shows a counter like `2/5` (two of five done).
@@ -81,22 +93,34 @@ Big issues can be split into smaller **sub-issues**. The parent shows a counter 
   the full new issue form.
 - **Make an existing issue a sub-issue:** change **Parent** on the right.
 
-### Comments
+### Comments and history
 
-Talk about an issue in the **Comments** under it. Type, then press `⌘` `Enter` or **Comment**. Formatting, links,
+Under each issue, **Activity** shows its comments and everything that happened to it, oldest first: who changed the
+status, who it was given to, when the due date moved, and so on. The history comes from your workspace's saved
+versions, so it goes all the way back (it needs a connection to show).
+
+Talk about an issue in the comments. Type, then press `⌘` `Enter` or **Comment**. Formatting, links,
 `@` mentions and issue IDs work just like in descriptions. A comment you haven't sent yet waits in this browser,
 so you can leave and come back.
 
 To change or remove one of your own comments, use the `⋯` on it: **Edit** (it saves as you type; **Done** when
 you're finished) or **Delete**.
 
+### Subscribing
+
+You hear about comments and status changes on issues you **follow**. You follow an issue by itself when you created
+it, it's assigned to you, you commented on it, or someone mentioned you in it. To follow any other issue, press the
+bell next to its title; press it again to stop (even for your own issues). **Subscribers** on the right shows who
+follows it, and you can add or remove teammates there too.
+
 ## Lists and boards
 
 Every list of issues can be shown two ways. Switch with **List / Board** at the top right.
 
 - **List:** rows grouped by status. Sub-issues sit just under their parent.
-- **Board:** a column per status, with cards. Empty columns wait under **Hidden columns** on the right; drop a
-  card on one to move the issue there.
+- **Board:** a column per status, with cards. Empty columns wait under **Hidden columns** on the right, together
+  with statuses the tab leaves out (like **Done** on the Active tab). Drop a card on one to move the issue there; the
+  column then shows up with that card in it.
 
 **Drag and drop** works in both. Drag an issue up or down to change its order, or into another group or column to
 change its status. Your teammates see the new order too. No mouse? Move to an issue with `Tab` (or `J` and `K`),
@@ -105,15 +129,15 @@ press and hold an issue for a moment, then drag it.
 
 **Several at once:** hold `⌘` (or `Ctrl`) and click issues to pick them, or press `X` on each. `Shift`-click picks
 everything between the last one you picked and this one. Drag any picked issue and the others come along, side by
-side. The bar at the bottom changes the status, priority, assignee or labels of all of them (or deletes them);
-`S`, `P`, `A` and `L` do the same. `Esc` lets go of them.
+side. The bar at the bottom changes the status, priority, assignee, labels or estimate of all of them (or archives
+or deletes them); `S`, `P`, `A`, `L` and `E` do the same. `Esc` lets go of them.
 
 **Display** (next to List / Board) changes how the page looks, just for you:
 
 - **Grouping:** by status, assignee, priority, project, or no groups at all. Dropping an issue into a group gives it
   that group's assignee, priority or project.
 - **Ordering:** **Manual** is the order you and your teammates arrange by dragging. You can also sort by priority,
-  by last update, or newest first. Dragging to reorder only works in Manual order.
+  by due date, by last update, or newest first. Dragging to reorder only works in Manual order.
 - **Show finished issues** and **Show sub-issues** hide or show those.
 - **Back to default** undoes your changes.
 
@@ -122,6 +146,17 @@ On your team's page, the tabs show:
 - **Active**: Todo, In Progress and In Review.
 - **Backlog**: ideas for later.
 - **All issues**: everything, including finished work.
+- **Archived**: issues put away (see below), with a search box.
+
+## Archive
+
+Finished issues leave the lists by themselves some time after they're done (six months unless your team picks
+otherwise in **Settings › Archive**). That keeps lists short and the app quick. You can also archive any issue yourself
+from its `⋯` menu, or several at once from the bar at the bottom; an issue's sub-issues go with it.
+
+Archived issues aren't gone. Find them under the **Archived** tab of their team, or with `⌘` `K` search; links to them
+still work. An archived issue can be read but not changed. Press **Restore** on it to bring it back, with its
+comments, under the same ID.
 
 ## Teams
 
@@ -166,8 +201,8 @@ Your **Inbox** tells you when someone:
 
 - assigns you an issue,
 - mentions you with `@` in a description or a comment,
-- comments on an issue you created, are assigned to, or commented on,
-- finishes or cancels an issue you created or are assigned to.
+- comments on an issue you follow (see Subscribing above),
+- changes the status of an issue you follow.
 
 The number in the sidebar is how many you haven't read. Opening a note (or its issue) marks it read. Hover a note to
 mark it read or delete it; **Mark all as read** and the `⋯` menu at the top work on all of them. Read notes clear
@@ -177,7 +212,8 @@ themselves after a month, and unread ones after three.
 
 **Settings › Import from Linear** brings your teams, issues, comments, projects and labels over. You'll need a
 Linear personal API key (the first step shows where to make one). Pick the teams, check who's who, and press
-**Import**. Issue numbers stay the same (`ENG-123` is still `ENG-123`). You can run it again later to bring in new
+**Import**. Issue numbers stay the same (`ENG-123` is still `ENG-123`), and so do due dates and estimates. Issues
+finished long ago go straight to the archive. You can run it again later to bring in new
 changes; nothing is copied twice.
 
 ## Handy keys
@@ -190,6 +226,7 @@ changes; nothing is copied twice.
 | `P` | Change priority |
 | `A` | Change who it's assigned to |
 | `L` | Change labels |
+| `E` | Change the estimate |
 | `J` / `K` or `↓` / `↑` | Move to the next or previous issue in a list or board |
 | `X` | Pick the issue (to change or move several at once) |
 | `Enter` | Open it |

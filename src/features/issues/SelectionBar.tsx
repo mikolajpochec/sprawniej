@@ -1,9 +1,10 @@
-/** Shown while issues are picked: how many, and buttons to change or delete all of them at once. */
+/** Shown while issues are picked: how many, and buttons to change, archive or delete all of them at once. */
 import { useState } from 'react'
-import { CircleDot, SignalHigh, Tag, Trash2, UserRound, X } from 'lucide-react'
+import { Archive, CircleDot, SignalHigh, Tag, Trash2, Triangle, UserRound, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { usePalette, type QuickField } from '@/app/palette'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
-import { deleteIssue } from '@/data/actions'
+import { archiveIssues, deleteIssue } from '@/data/actions'
 import { Button } from '@/ui/button'
 import { clearSelection, useSelection } from './selection'
 
@@ -12,6 +13,7 @@ const FIELDS: [QuickField, string, typeof CircleDot, string][] = [
   ['priority', 'Priority', SignalHigh, 'P'],
   ['assignee', 'Assignee', UserRound, 'A'],
   ['labels', 'Labels', Tag, 'L'],
+  ['estimate', 'Estimate', Triangle, 'E'],
 ]
 
 export function SelectionBar() {
@@ -26,6 +28,18 @@ export function SelectionBar() {
           <Icon /> <span className="hidden sm:inline">{label}</span>
         </Button>
       ))}
+      <Button
+        variant="ghost"
+        size="sm"
+        title="Archive"
+        onClick={() => {
+          const n = archiveIssues(ids)
+          clearSelection()
+          toast(`Archived ${n} issue${n === 1 ? '' : 's'}`, { description: 'They’re out of every list. Find them under Archived on their team’s Issues page.' })
+        }}
+      >
+        <Archive /> <span className="hidden sm:inline">Archive</span>
+      </Button>
       <Button variant="ghost" size="sm" className="text-red-300" onClick={() => setConfirm(true)}>
         <Trash2 /> <span className="hidden sm:inline">Delete</span>
       </Button>

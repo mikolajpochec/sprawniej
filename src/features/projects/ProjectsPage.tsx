@@ -12,13 +12,14 @@ import { shortDate } from '@/features/issues/format'
 import { Button } from '@/ui/button'
 import { NewProjectDialog } from './NewProjectDialog'
 import { StatusDot } from './ProjectProperties'
+import { useProgressIssues } from './useProjectIssues'
 import { PROJECT_STATUS_NAMES } from './status'
 
 export function ProjectsPage() {
   const { key } = useParams<{ key?: string }>()
   const team = useData((s) => (key ? s.teams[key] : undefined))
   const projects = useData(useShallow((s) => Object.values(s.projects).filter((p) => (key ? p.teams.includes(key) : true))))
-  const issues = useData(useShallow((s) => Object.values(s.issues)))
+  const issues = useProgressIssues()
   const people = useData((s) => s.people)
   useCrumbs(team ? [{ label: `${team.emoji} ${team.name}` }, { label: 'Projects' }] : [{ label: 'Projects' }])
   const [creating, setCreating] = useState(false)

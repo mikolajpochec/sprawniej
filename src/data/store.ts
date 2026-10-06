@@ -3,7 +3,7 @@
  * they never change it directly. All changes go through `actions.ts` (see CLAUDE.md, golden rules).
  */
 import { create } from 'zustand'
-import type { Comment, InboxItem, Issue, Label, Person, Project, ReadState, Team, View, Workspace } from '@/model/schema'
+import type { ArchivedIssue, Comment, InboxItem, Issue, Label, Person, Project, ReadState, Team, View, Workspace } from '@/model/schema'
 
 export interface DataState {
   workspace: Workspace | null
@@ -13,6 +13,9 @@ export interface DataState {
   labels: Record<string, Label>
   teams: Record<string, Team>
   issues: Record<string, Issue>
+  /** archived issues by id; empty until something needs them (loadArchive in project.ts) */
+  archive: Record<string, ArchivedIssue>
+  archiveLoaded: boolean
   projects: Record<string, Project>
   views: Record<string, View>
   /** by issue id, oldest first */
@@ -29,6 +32,8 @@ export const EMPTY: DataState = {
   labels: {},
   teams: {},
   issues: {},
+  archive: {},
+  archiveLoaded: false,
   projects: {},
   views: {},
   comments: {},
@@ -47,6 +52,12 @@ export function findByRef(issues: Record<string, Issue>, ref: string): Issue | u
   if (!m) return undefined
   const n = Number(m[2])
   return Object.values(issues).find((i) => i.team === m[1] && i.number === n)
+}
+
+/** an archived issue by its "ENG-12" reference (only once the archive is loaded); an active one with the same id wins */
+export function findArchivedByRef(s: Pick<DataState, 'archive' | 'issues'>, ref: string): ArchivedIssue | undefined {
+  const found = findByRef(s.archive, ref) as ArchivedIssue | undefined
+  return found && !s.issues[found.id] ? found : undefined
 }
 
 declare global {

@@ -3,6 +3,18 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.1.0: Due dates, history, subscriptions and the archive
+*2026-10-07*
+
+- Give issues a due date and an estimate; lists show them, late ones in red, and you can order by due date
+- Every issue shows its history between the comments: who changed what, and when
+- Subscribe to any issue with the bell to hear about its comments and status changes, or unsubscribe from your own
+- On a board, empty columns and statuses the tab leaves out (like Done) wait under Hidden columns; drop a card there and the column appears
+- Finished issues move to the archive after six months (or when you choose), so lists stay short and the app stays quick; find them under Archived or in search, and restore them any time
+- Press E to set the estimate of the issue under the mouse
+- The Linear import brings due dates and estimates, and puts issues finished long ago straight into the archive
+- A new device downloads your workspace faster
+
 ## 1.0.0: Sprawniej 1.0
 *2026-10-07*
 

@@ -2,13 +2,14 @@
  * Settings › Import from Linear: a short wizard. Key → teams → people → check → import → done.
  * Reading happens straight from Linear; the import is written like any other change (actions.importFiles).
  */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'wouter'
 import { ulid } from 'ulid'
 import { CheckCircle2, ExternalLink, Loader2 } from 'lucide-react'
 import { useCrumbs } from '@/app/chrome'
 import { PersonAvatar } from '@/components/Avatar'
 import { importFiles } from '@/data/actions'
+import { loadArchive } from '@/data/project'
 import { useData } from '@/data/store'
 import { Problem } from '@/features/onboarding/Step'
 import { cn } from '@/lib/utils'
@@ -65,6 +66,8 @@ export function ImportPage() {
   const [picked, setPicked] = useState<Record<string, string>>({})
   const [people, setPeople] = useState<Record<string, string | null>>({})
   const ws = useData((s) => s)
+  // a second import has to know the issues archived since the first
+  useEffect(() => loadArchive(), [])
 
   async function run(what: string, fn: () => Promise<void>) {
     setBusy(what)
@@ -295,6 +298,12 @@ export function ImportPage() {
             </li>
           ))}
         </ul>
+        {c.archived > 0 && (
+          <p className="mt-5 text-sm text-muted-foreground">
+            {c.archived === 1 ? 'One of the issues was finished long ago, so it goes' : `${c.archived.toLocaleString()} of the issues were finished long ago, so they go`} to the
+            archive. You can still find and open {c.archived === 1 ? 'it' : 'them'}.
+          </p>
+        )}
         {plan.renumbered.length > 0 && (
           <p className="mt-5 text-sm text-muted-foreground">
             {plan.renumbered.length === 1 ? 'One issue gets' : `${plan.renumbered.length} issues get`} a new number, because the team here already

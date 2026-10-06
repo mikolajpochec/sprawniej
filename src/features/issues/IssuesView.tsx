@@ -56,8 +56,17 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
   const all = useData(useShallow((s) => Object.values(s.issues)))
   const people = useData((s) => s.people)
   const projects = useData((s) => s.projects)
-  const shown = useMemo(() => all.filter((i) => matches(i, filters) && matches(i, extra) && inTab(i, tab)), [all, filters, extra, tab])
-  const groups = useMemo(() => groupIssues(shown, display, { people, projects }, tab), [shown, display, people, projects, tab])
+  // issues dropped on the board into a hidden column (Done on Active, another project on a project page) stay in view
+  // until you leave
+  const [keptOn, setKept] = useState<{ page: string; tab: string; ids: ReadonlySet<string> }>({ page, tab, ids: new Set() })
+  const kept = useMemo(() => (keptOn.page === page && keptOn.tab === tab ? keptOn.ids : new Set<string>()), [keptOn, page, tab])
+  const keep = (ids: string[]) => setKept({ page, tab, ids: new Set([...kept, ...ids]) })
+  // (whatever the page's filters say: a dropped card lands in its new column, never vanishes)
+  const shown = useMemo(() => all.filter((i) => kept.has(i.id) || (matches(i, filters) && matches(i, extra) && inTab(i, tab))), [all, filters, extra, tab, kept])
+  const board = display.layout === 'board'
+  // on a team's page, a board offers only that team's projects as places to drop
+  const team = filters.teams?.length === 1 ? filters.teams[0] : undefined
+  const groups = useMemo(() => groupIssues(shown, display, { people, projects, team, keep: kept }, tab, board), [shown, display, people, projects, tab, board, team, kept])
   const filtering = activeFilters(extra) > 0
 
   /** "+" on a group: a new issue that already belongs in that group (and on this page) */
@@ -135,7 +144,7 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
         </div>
       ) : (
         <div className="min-h-0 flex-1" data-tour="issues">
-          <IssueBoard groups={groups} display={display} onAdd={addTo} />
+          <IssueBoard groups={groups} display={display} onAdd={addTo} onDrop={keep} />
         </div>
       )}
       {saving && (

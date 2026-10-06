@@ -53,3 +53,6 @@ export const PRIORITY_NAMES: Record<Priority, string> = {
 
 /** Display order for grouping by priority: urgent first, "no priority" last. */
 export const PRIORITY_ORDER: Priority[] = [1, 2, 3, 4, 0]
+
+/** Estimates people can pick, in points. Imported issues can have other numbers; those are shown as they are. */
+export const ESTIMATES = [1, 2, 3, 5, 8] as const

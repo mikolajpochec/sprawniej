@@ -7,7 +7,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCrumbs } from '@/app/chrome'
 import { signOutEverywhere } from '@/app/signOut'
 import { PersonAvatar } from '@/components/Avatar'
-import { renameWorkspace } from '@/data/actions'
+import { renameWorkspace, setAutoArchive } from '@/data/actions'
+import { AUTO_ARCHIVE_MONTHS } from '@/model/schema'
 import { useData } from '@/data/store'
 import { inviteMessage, joinLink } from '@/features/onboarding/joinLink'
 import { Problem } from '@/features/onboarding/Step'
@@ -17,6 +18,7 @@ import { workspace } from '@/sync/engine'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog'
 import { Input } from '@/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { LabelsSettings } from './LabelsSettings'
 
 function Section({ title, children, description }: { title: string; description?: string; children: ReactNode }) {
@@ -225,6 +227,35 @@ function Account() {
   )
 }
 
+const ARCHIVE_CHOICES = [1, 3, 6, 12, 0]
+
+/** per team: how long finished issues stay in the lists before they're archived */
+function ArchiveSettings() {
+  const teams = useData(useShallow((s) => Object.values(s.teams).sort((a, b) => a.name.localeCompare(b.name))))
+  return (
+    <ul className="flex flex-col gap-2">
+      {teams.map((t) => (
+        <li key={t.key} className="flex items-center gap-3">
+          <span className="w-5 text-center">{t.emoji}</span>
+          <span className="min-w-0 flex-1 truncate text-[15px]">{t.name}</span>
+          <Select value={String(t.autoArchive ?? AUTO_ARCHIVE_MONTHS)} onValueChange={(v) => setAutoArchive(t.key, Number(v))}>
+            <SelectTrigger className="w-44" aria-label={`When ${t.name} archives finished issues`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ARCHIVE_CHOICES.map((m) => (
+                <SelectItem key={m} value={String(m)}>
+                  {m === 0 ? 'Never' : `After ${m} ${m === 1 ? 'month' : 'months'}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function SettingsPage() {
   const repo = useSession((s) => s.workspace)
   useCrumbs([{ label: 'Settings' }])
@@ -244,6 +275,12 @@ export function SettingsPage() {
         </Section>
         <Section title="Labels" description="Labels sort issues across teams. Renaming or recolouring one changes it on every issue.">
           <LabelsSettings />
+        </Section>
+        <Section
+          title="Archive"
+          description="Finished issues leave the lists some time after they're done, so the lists stay short and the app stays quick. Archived issues can still be opened, found and brought back."
+        >
+          <ArchiveSettings />
         </Section>
         <Section title="Import" description="Bring teams, issues, comments, projects and labels over from Linear. You can run it again later to bring in new changes.">
           <Button asChild variant="outline">

@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 import { findByRef, useData } from '@/data/store'
 
-export type QuickField = 'status' | 'priority' | 'assignee' | 'labels'
+export type QuickField = 'status' | 'priority' | 'assignee' | 'labels' | 'estimate'
 
 interface Palette {
   open: boolean

@@ -3,21 +3,62 @@
  * those files and update the store. A file that can't be read is skipped with a warning.
  */
 import type { Comment, Person } from '@/model/schema'
-import { parseFile, type Parsed } from './files'
+import { classify, parseFile, type Parsed } from './files'
 import { useData, type DataState } from './store'
 
 /** what each path held last time, so a deleted or changed file can be taken out of the store */
 const index = new Map<string, Parsed>()
+
+/**
+ * Archive month files as text. They're read only when something needs archived issues (an old link, search, the
+ * Archived tab), so a big archive costs nothing when the app opens.
+ */
+const archiveText = new Map<string, string>()
+let archiveOn = false
 
 /** people GitHub says have access but who haven't opened the workspace yet (no people/ file) */
 let collaborators: Record<string, Person> = {}
 
 export function resetProjection() {
   index.clear()
+  archiveText.clear()
+  archiveOn = false
+  numbers.clear()
   collaborators = {}
 }
 
-type Draft = Pick<DataState, 'workspace' | 'people' | 'labels' | 'teams' | 'issues' | 'projects' | 'views' | 'comments' | 'inbox' | 'readState'>
+/** Read the archive into the store (once; later changes to it are read as they come). */
+export function loadArchive() {
+  if (archiveOn) return
+  archiveOn = true
+  applyFiles(new Map(archiveText), useData.getState().me?.login ?? null)
+  useData.setState({ archiveLoaded: true })
+}
+
+/** the archive month files as they are now (path → text), for actions that change them */
+export function archiveFiles(): ReadonlyMap<string, string> {
+  return archiveText
+}
+
+const numbers = new Map<string, { text: string; max: number }>()
+/** the highest number among a team's archived issues, without reading the archive properly */
+export function highestArchived(team: string): number {
+  let max = 0
+  for (const [path, text] of archiveText) {
+    if (!path.startsWith(`teams/${team}/archive/`)) continue
+    let known = numbers.get(path)
+    if (known?.text !== text) {
+      let m = 0
+      for (const hit of text.matchAll(/"number":(\d+)/g)) m = Math.max(m, Number(hit[1]))
+      known = { text, max: m }
+      numbers.set(path, known)
+    }
+    max = Math.max(max, known.max)
+  }
+  return max
+}
+
+type Draft = Pick<DataState, 'workspace' | 'people' | 'labels' | 'teams' | 'issues' | 'archive' | 'projects' | 'views' | 'comments' | 'inbox' | 'readState'>
 
 function remove(d: Draft, p: Parsed) {
   switch (p.kind) {
@@ -36,6 +77,9 @@ function remove(d: Draft, p: Parsed) {
       break
     case 'issue':
       delete d.issues[p.value.id]
+      break
+    case 'archive':
+      for (const a of p.value) delete d.archive[a.id]
       break
     case 'comment': {
       const list = (d.comments[p.value.issue] ?? []).filter((c) => c.id !== p.value.id)
@@ -75,6 +119,9 @@ function add(d: Draft, p: Parsed, me: string | null) {
     case 'issue':
       d.issues[p.value.id] = p.value
       break
+    case 'archive':
+      for (const a of p.value) if (!d.archive[a.id] || d.archive[a.id].archivedAt <= a.archivedAt) d.archive[a.id] = a
+      break
     case 'comment': {
       const list: Comment[] = [...(d.comments[p.value.issue] ?? []).filter((c) => c.id !== p.value.id), p.value]
       d.comments[p.value.issue] = list.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -102,6 +149,7 @@ const FIELD = {
   label: 'labels',
   team: 'teams',
   issue: 'issues',
+  archive: 'archive',
   comment: 'comments',
   project: 'projects',
   view: 'views',
@@ -119,6 +167,11 @@ export function applyFiles(changes: Map<string, string | null>, me: string | nul
   const parsed = new Map<string, Parsed | null>()
   const touched = new Set<keyof Draft>()
   for (const [path, text] of changes) {
+    if (classify(path)?.kind === 'archive') {
+      if (text === null) archiveText.delete(path)
+      else archiveText.set(path, text)
+      if (!archiveOn) continue
+    }
     const old = index.get(path)
     if (old) touched.add(FIELD[old.kind])
     let p: Parsed | null = null

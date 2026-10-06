@@ -36,7 +36,7 @@ const isGroupId = (id: UniqueIdentifier) => String(id).startsWith(GROUP)
 /** scroll only when the pointer is close to the edge (dnd-kit's default, 20%, scrolls a wide board too eagerly) */
 export const AUTO_SCROLL = { threshold: { x: 0.08, y: 0.12 } }
 
-const ORDER_NAMES: Record<Display['ordering'], string> = { manual: 'manual', priority: 'priority', updated: 'last update', created: 'creation date' }
+const ORDER_NAMES: Record<Display['ordering'], string> = { manual: 'manual', priority: 'priority', due: 'due date', updated: 'last update', created: 'creation date' }
 
 /** the order each group shows its issues in: sub-issues right under their parent in a list */
 function baseOrder(groups: Group[], nest: boolean): Record<string, string[]> {
@@ -45,9 +45,10 @@ function baseOrder(groups: Group[], nest: boolean): Record<string, string[]> {
 
 /**
  * `nest`: sub-issues sit under their parent (list). `park`: empty groups are shown apart (the board's hidden
- * columns); dropping on one moves the issue there, but nothing moves on screen while you hover it.
+ * columns); dropping on one moves the issue there, but nothing moves on screen while you hover it. `onDrop` hears
+ * which issues were dropped, so the page can keep showing them.
  */
-export function useIssueDrag(groups: Group[], display: Display, { nest = false, park = false } = {}) {
+export function useIssueDrag(groups: Group[], display: Display, { nest = false, park = false, onDrop }: { nest?: boolean; park?: boolean; onDrop?: (ids: string[]) => void } = {}) {
   const base = useMemo(() => baseOrder(groups, nest), [groups, nest])
   const parked = useMemo(() => new Set(park ? groups.filter((g) => g.issues.length === 0).map((g) => g.key) : []), [groups, park])
   const issues = useMemo(() => new Map(groups.flatMap((g) => g.issues.map((i) => [i.id, i] as const))), [groups])
@@ -189,7 +190,9 @@ export function useIssueDrag(groups: Group[], display: Display, { nest = false, 
         const p = issues.get(x)?.parent
         return nest && p && ids.includes(p) ? p : null
       }
-      const near = manual ? neighbours(ids, id, parentHere) : null
+      // a hidden column keeps the issue's place: there are no neighbours to see there
+      const near = manual && !onParked ? neighbours(ids, id, parentHere) : null
+      onDrop?.([id, ...others])
       if (others.length) moveIssues([id, ...others], { patch: groupChange, place: near })
       else moveIssue(id, { patch, place: near })
     }
@@ -198,7 +201,7 @@ export function useIssueDrag(groups: Group[], display: Display, { nest = false, 
 
   return {
     order,
-    /** empty groups shown apart (board) */
+    /** groups shown apart under "Hidden columns" (board) */
     parked,
     activeId,
     issue: (id: string): Issue | undefined => issues.get(id),

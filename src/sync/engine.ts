@@ -15,6 +15,7 @@ import {
   createCommit,
   createFirstFile,
   createTree,
+  fileHistory,
   getBlobs,
   getCommit,
   getFiles,
@@ -26,6 +27,7 @@ import {
   moveBranch,
   NotFastForward,
   type Author,
+  type FileVersion,
   type RepoRef,
 } from '@/github/api'
 import { classify, WORKSPACE_FILE } from '@/data/files'
@@ -49,6 +51,8 @@ export interface SyncStatus {
   pending: number
   /** first download of a workspace: how far along */
   progress?: string
+  /** this tab has brought in teammates' changes at least once since the workspace opened */
+  synced?: boolean
 }
 
 export const useSync = create<SyncStatus>()(() => ({ state: 'loading', pending: 0 }))
@@ -118,7 +122,7 @@ export class Workspace {
     const ws = new Workspace(repo, token, me)
     resetProjection()
     useData.setState({ ...EMPTY, me })
-    useSync.setState({ state: 'loading', pending: 0, detail: undefined, progress: undefined })
+    useSync.setState({ state: 'loading', pending: 0, detail: undefined, progress: undefined, synced: false })
     const leads = await ws.tabs.lead(() => void ws.takeOver())
     if (leads) await ws.lead()
     else await ws.follow()
@@ -371,7 +375,7 @@ export class Workspace {
         await this.pull()
         await this.save()
         this.retryDelay = 5_000
-        useSync.setState({ state: this.pending.size ? 'saving' : 'saved', pending: this.pending.size, detail: undefined })
+        useSync.setState({ state: this.pending.size ? 'saving' : 'saved', pending: this.pending.size, detail: undefined, synced: true })
         if (this.pending.size) this.scheduleSave()
       } catch (e) {
         this.report(e)
@@ -548,6 +552,8 @@ export class Workspace {
       } catch (e) {
         if (e instanceof NotFastForward) {
           this.etag = undefined
+          // a short, random wait, so two people saving at once don't meet again
+          await new Promise((r) => setTimeout(r, 150 + Math.random() * 600))
           await this.pull()
           continue
         }
@@ -589,6 +595,11 @@ export class Workspace {
     await this.local.putBase(new Map([[WORKSPACE_FILE, first]]))
     this.meta = { branch: r.branch, head: commit.sha, tree: commit.tree.sha }
     await this.local.setMeta(this.meta)
+  }
+
+  /** the saved versions of a file, newest first (issue history) */
+  history(path: string): Promise<FileVersion[]> {
+    return fileHistory(this.token, this.repo, path)
   }
 
   /** forget this browser's copy (signing out) */

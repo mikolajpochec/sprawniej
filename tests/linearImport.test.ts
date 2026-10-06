@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { parseFile } from '@/data/files'
 import { buildImport, emojiFor, freeKey, guessPerson, involvedUsers, mapStatus, rewriteLinks, type Existing, type ImportChoices } from '@/features/import/linearMap'
-import type { Comment, Issue, Label, Project, Team } from '@/model/schema'
+import type { ArchivedIssue, Comment, Issue, Label, Project, Team } from '@/model/schema'
 import { linearFixture as data } from './fixtures/linear'
 
 const person = (login: string, name: string) => ({ login, githubId: 1, name, avatarUrl: '' })
@@ -66,16 +66,17 @@ function read(files: Map<string, string | null>): Existing {
 }
 
 describe('building the import', () => {
-  const r = buildImport(data, choices, empty(), ids(), '2026-10-07T00:00:00.000Z')
+  const r = buildImport(data, choices, empty(), ids(), '2026-03-01T00:00:00.000Z')
   const ws = read(r.files)
   const byTitle = (t: string) => Object.values(ws.issues).find((i) => i.title === t)!
 
   test('only the chosen team, with numbers, statuses and people', () => {
-    expect(r.counts).toEqual({ teams: 1, labels: 2, projects: 1, issues: 3, comments: 2 })
+    expect(r.counts).toEqual({ teams: 1, labels: 2, projects: 1, issues: 3, comments: 2, archived: 0 })
     expect(ws.teams.ENG).toMatchObject({ name: 'Engineering', emoji: '🚀' })
     expect(ws.teams.ENG.members.sort()).toEqual(['ana-n', 'bstone', 'mikolaj'])
     const charts = byTitle('Charts are slow')
-    expect(charts).toMatchObject({ number: 1, status: 'in_review', priority: 2, assignee: 'bstone', createdBy: 'ana-n' })
+    expect(charts).toMatchObject({ number: 1, status: 'in_review', priority: 2, assignee: 'bstone', createdBy: 'ana-n', dueDate: '2026-11-03', estimate: 5 })
+    expect('dueDate' in byTitle('Old idea')).toBe(false)
     expect(byTitle('Old idea')).toMatchObject({ status: 'backlog', createdBy: 'mikolaj' })
     expect(byTitle('Fix the axis')).toMatchObject({ status: 'done', completedAt: '2026-02-01T00:00:00.000Z', parent: charts.id })
   })
@@ -104,6 +105,23 @@ describe('building the import', () => {
     expect(Object.keys(ws2.issues).sort()).toEqual(Object.keys(ws.issues).sort())
     expect(Object.values(ws2.issues).find((i) => i.number === 3)?.title).toBe('Old idea, renamed')
     expect(Object.keys(ws2.projects)).toEqual(Object.keys(ws.projects))
+  })
+
+  test('issues finished long ago go straight into the archive; a second import leaves them there', () => {
+    const later = buildImport(data, choices, empty(), ids(), '2026-10-07T00:00:00.000Z')
+    expect(later.counts).toMatchObject({ issues: 3, archived: 1 })
+    const month = [...later.files.keys()].filter((p) => p.includes('/archive/'))
+    expect(month).toEqual(['teams/ENG/archive/2026-02.jsonl'])
+    const archived = parseFile(month[0], later.files.get(month[0])!)
+    expect(archived).toMatchObject({ kind: 'archive', value: [{ title: 'Fix the axis', number: 2, archivedBy: 'mikolaj' }] })
+    const ws3 = read(later.files)
+    expect(Object.values(ws3.issues).map((i) => i.title).sort()).toEqual(['Charts are slow', 'Old idea'])
+    const archive = Object.fromEntries((archived as { value: ArchivedIssue[] }).value.map((a) => [a.id, a]))
+    const again = buildImport(data, choices, { ...ws3, me: 'mikolaj', archive }, ids(), '2026-10-08T00:00:00.000Z')
+    expect(again.counts).toMatchObject({ issues: 3, archived: 1 })
+    expect([...again.files.keys()].some((p) => p.includes('/archive/') || p.includes(archive[Object.keys(archive)[0]].id))).toBe(false)
+    // the sub-issue's parent link still points at the same issue
+    expect(Object.values(read(again.files).issues).find((i) => i.title === 'Charts are slow')?.id).toBe(Object.values(ws3.issues).find((i) => i.title === 'Charts are slow')?.id)
   })
 
   test('into a team that already has issues: clashing numbers move up', () => {
