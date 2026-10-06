@@ -1,8 +1,8 @@
 # Sprawniej
 
-Issues, projects and views for your team, the way Linear does them, kept in a GitHub repo you own.
+Plan and track your team's work: issues, projects and views, kept in a GitHub repo you own.
 
-- **Issues** with Linear's statuses and priorities, rich descriptions, sub-issues and comments
+- **Issues** with statuses and priorities, rich descriptions, sub-issues and comments
 - **List and board**, with drag-n-drop in both
 - **Teams**, each with its own issues, projects and views
 - **Views** with emojis: saved filters anyone on the team can open
@@ -23,6 +23,7 @@ bun install
 bun dev            # http://localhost:5173
 bun test           # logic tests
 bun run build      # dist/, deployed to GitHub Pages from main
+                   # VITE_PUBLIC_URL=https://… bun run build  to make join links use your own domain
 ```
 
 Start with [CLAUDE.md](CLAUDE.md) (working rules) and [docs/architecture.md](docs/architecture.md).

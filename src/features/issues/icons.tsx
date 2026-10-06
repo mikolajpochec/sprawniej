@@ -1,4 +1,4 @@
-/** Status and priority icons, drawn like Linear's so people recognise them at a glance. */
+/** Status and priority icons: the same shapes everywhere, so people recognise them at a glance. */
 import type { Priority, StatusId } from '@/model/status'
 import { statusOf } from '@/model/status'
 import { cn } from '@/lib/utils'

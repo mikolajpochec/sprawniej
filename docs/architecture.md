@@ -34,7 +34,7 @@ GitHub repo (for example acme/sprawniej-data) = the workspace
 - The token stays in this browser (localStorage). Signing out removes it.
 - People in a workspace are the people GitHub lets in (`GET /repos/{owner}/{repo}/assignees`). Each person also
   writes `people/<login>.json` the first time they open the workspace, so names and pictures work offline.
-- Anyone who can push to the repo can change anything, just like in Linear. We don't sign files.
+- Anyone who can push to the repo can change anything. We don't sign files.
 
 ### Joining a workspace (teammates)
 
@@ -50,6 +50,9 @@ ready-to-send message. The link opens a wizard with one step per screen:
    screenshots (scroll down, press the green button, copy). The pasted key is checked at once, and errors say what
    to do ("This key can't open Acme's workspace yet. Did you accept the invitation in step 3?").
 5. **That's you!**: your GitHub picture and name, and "Let's go".
+
+Join links use the app's public address: `VITE_PUBLIC_URL` at build time, or else the address the app is served
+from (`src/config.ts`). On localhost there is no link to share, so Settings doesn't show one.
 
 A short tour follows the first visit. The owner's own setup (creating the workspace repo) is a separate, guided path.
 
@@ -100,7 +103,7 @@ changed **the same issue**:
 | Situation | Result |
 | --- | --- |
 | Different fields changed (say, status and assignee) | Both changes are kept. |
-| The same field changed on both sides | The later save wins, as in Linear. |
+| The same field changed on both sides | The later save wins. |
 | Both edited the description | Lines are merged. Where the same lines changed, the later save wins, the other version stays in history, and a message says so. |
 | One edited, the other deleted | The edit wins and the issue stays. |
 | Both created an issue with the same number while offline | The one not yet on GitHub gets the next free number, with a message ("ENG-12 is now ENG-14"). |

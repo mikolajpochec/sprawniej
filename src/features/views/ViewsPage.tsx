@@ -1,4 +1,4 @@
-/** The list of saved views, like Linear's Views page: emoji, name, description, owner. */
+/** The list of saved views: emoji, name, description, owner. */
 import { Link, useParams } from 'wouter'
 import { Layers } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'

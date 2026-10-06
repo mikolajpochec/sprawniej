@@ -1,6 +1,6 @@
 /**
- * Issue statuses and priorities. Fixed on purpose: they match Linear's defaults, so people coming from Linear
- * feel at home and imports map one to one. Each status belongs to one of Linear's groups; the groups decide
+ * Issue statuses and priorities. Fixed on purpose: one shared vocabulary for every team, and the import maps onto
+ * them one to one. Each status belongs to a group; the groups decide
  * which issues the Active, Backlog and All tabs show.
  */
 
@@ -39,7 +39,7 @@ export const TAB_GROUPS: Record<IssueTab, StatusGroup[]> = {
   all: ['backlog', 'unstarted', 'started', 'completed', 'canceled'],
 }
 
-/** Linear's numbers: 0 = no priority, 1 = urgent … 4 = low. */
+/** 0 = no priority, 1 = urgent … 4 = low (the same numbers the import uses). */
 export const PRIORITY_IDS = [0, 1, 2, 3, 4] as const
 export type Priority = (typeof PRIORITY_IDS)[number]
 

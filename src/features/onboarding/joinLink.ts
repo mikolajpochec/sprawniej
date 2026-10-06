@@ -1,12 +1,16 @@
 /** Join links: #/join/<owner>/<repo>?ws=<workspace name>&by=<who invited you> */
+import { publicAppUrl } from '@/config'
 import type { RepoRef } from '@/github/api'
 
-export function joinLink(repo: RepoRef, workspaceName?: string, by?: string): string {
+/** null while the app runs on this computer (see config.ts) */
+export function joinLink(repo: RepoRef, workspaceName?: string, by?: string): string | null {
+  const base = publicAppUrl()
+  if (!base) return null
   const q = new URLSearchParams()
   if (workspaceName) q.set('ws', workspaceName)
   if (by) q.set('by', by)
   const query = q.toString()
-  return `${location.origin}${location.pathname}#/join/${repo.owner}/${repo.repo}${query ? `?${query}` : ''}`
+  return `${base}#/join/${repo.owner}/${repo.repo}${query ? `?${query}` : ''}`
 }
 
 /** the message the owner sends along with the link */

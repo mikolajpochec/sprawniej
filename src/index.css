@@ -29,7 +29,7 @@
   --sidebar-foreground: #e4e4e7;
   --sidebar-accent: #27272a;
 
-  /* meaning colours, borrowed from Linear */
+  /* colours that carry meaning: statuses, urgent */
   --status-backlog: #8a8f98;
   --status-todo: #c4c6cc;
   --status-progress: #f2c94c;

@@ -1,4 +1,4 @@
-/** Issues as rows, grouped (by status unless the display says otherwise), like Linear's list. */
+/** Issues as rows, grouped (by status unless the display says otherwise). */
 import { useMemo, useState } from 'react'
 import { Link } from 'wouter'
 import { ChevronDown, Plus } from 'lucide-react'

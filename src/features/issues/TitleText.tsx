@@ -1,4 +1,4 @@
-/** An issue title, with `backticks` shown as code, as Linear does. */
+/** An issue title, with `backticks` shown as code. */
 export function TitleText({ title }: { title: string }) {
   const parts = title.split(/(`[^`]+`)/g)
   return (

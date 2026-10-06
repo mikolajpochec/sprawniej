@@ -1,6 +1,7 @@
 # Sprawniej: working rules
 
-Sprawniej is our own Linear: issues, teams, projects and views with emojis, in a list or on a board. It is a
+Sprawniej is our internal tool for planning and tracking work: issues, teams, projects and views with emojis, in a
+list or on a board. It is a
 static web app (GitHub Pages). **The workspace is a GitHub repo**: every issue, comment and view is a small file
 in it, and the app saves by committing and pushing. There is no server of our own. Sign-in is a classic GitHub
 token, so your GitHub account is your Sprawniej account.
@@ -20,7 +21,7 @@ Read before changing things:
   gets its own folder of small files, not a field in a shared file.
 - **The repo format is a promise.** Changing what a file means or where it lives is a MAJOR release with a migration.
   Unknown fields must survive a read and write (schemas use `.passthrough()`).
-- **Statuses and priorities are Linear's** and are fixed (`src/model/status.ts`). Don't add custom workflows.
+- **Statuses and priorities are fixed** (`src/model/status.ts`). Don't add custom workflows.
 - **Classic tokens only.** No fine-grained tokens, no OAuth app, no proxy server.
 - **No agents or AI features.**
 
@@ -59,11 +60,13 @@ Title line only, plain words. No AI attribution trailers.
 - Never write a GitHub key into a file (scripts, `.env`, the repo). Pass it as an environment variable for one command.
 
 ## Design
-Follow [docs/design.md](docs/design.md). Use a shadcn component before writing a new one. Linear's colours are only for
+Follow [docs/design.md](docs/design.md). Use a shadcn component before writing a new one. Bright colours are only for
 meaning (statuses, priorities, labels); everything else is neutral grey.
 
 ## Writing
 - Simple, friendly words everywhere: UI, docs, changelog. Many teammates are not technical.
+- **Don't compare Sprawniej to other products** ("like in Linear") in the app, the user guide or the README. It is
+  its own tool and should explain itself. The one exception is the Linear import, which has to name what it imports from.
 - **No em dashes** anywhere. Use a comma, colon, parentheses or a new sentence.
 - Screens that teammates see never say commit, push, pull, merge, repo or token. Say "saved", "updated with your
   teammates' changes", "where your workspace is stored", "GitHub key".

@@ -146,16 +146,22 @@ function People() {
 
       <div>
         <h3 className="mb-1 font-medium">Join link</h3>
-        <p className="mb-3 text-sm text-muted-foreground">Send this to the people you invited. It walks them through getting in, step by step.</p>
-        <div className="flex max-w-2xl gap-2">
-          <Input readOnly value={link} className="h-10 font-mono text-sm" onFocus={(e) => e.target.select()} aria-label="Join link" />
-          <Button variant="outline" size="lg" onClick={() => copy(link, 'Link')}>
-            <Copy /> Copy link
-          </Button>
-        </div>
-        <Button variant="link" className="mt-1 px-0" onClick={() => copy(inviteMessage(link, wsName), 'Message')}>
-          Copy a ready-to-send message instead
-        </Button>
+        {link ? (
+          <>
+            <p className="mb-3 text-sm text-muted-foreground">Send this to the people you invited. It walks them through getting in, step by step.</p>
+            <div className="flex max-w-2xl gap-2">
+              <Input readOnly value={link} className="h-10 font-mono text-sm" onFocus={(e) => e.target.select()} aria-label="Join link" />
+              <Button variant="outline" size="lg" onClick={() => copy(link, 'Link')}>
+                <Copy /> Copy link
+              </Button>
+            </div>
+            <Button variant="link" className="mt-1 px-0" onClick={() => copy(inviteMessage(link, wsName), 'Message')}>
+              Copy a ready-to-send message instead
+            </Button>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">Sprawniej is running on this computer only, so there's no link to share. Join links appear here in the published app.</p>
+        )}
       </div>
     </div>
   )
@@ -231,7 +237,7 @@ export function SettingsPage() {
             </a>
           )}
         </Section>
-        <Section title="People" description="Everyone here can see and change all issues, like in Linear.">
+        <Section title="People" description="Everyone here can see and change every issue in the workspace.">
           <People />
         </Section>
         <Section title="Your account">

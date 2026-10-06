@@ -79,8 +79,8 @@ Charts should be easier to read at a glance.
 | Field | Meaning |
 | --- | --- |
 | `number` | Shown as `ENG-12`. Final once it reached GitHub. |
-| `status` | `backlog`, `todo`, `in_progress`, `in_review`, `done`, `canceled`, `duplicate` (Linear's defaults) |
-| `priority` | `0` none, `1` urgent, `2` high, `3` medium, `4` low (Linear's numbers) |
+| `status` | `backlog`, `todo`, `in_progress`, `in_review`, `done`, `canceled`, `duplicate` |
+| `priority` | `0` none, `1` urgent, `2` high, `3` medium, `4` low |
 | `assignee` | A GitHub login, or `null` |
 | `labels` | Label ids |
 | `project`, `parent` | Ids, or `null`. `parent` makes this a sub-issue. |

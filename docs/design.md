@@ -1,7 +1,8 @@
 # Design
 
 Sprawniej looks like our internal tools (Punchcard): calm, dark, neutral grey, with roomy controls. Inside that
-frame it works like Linear: dense issue rows, Linear's status and priority icons, the same keyboard habits.
+frame the issue screens are dense and quick: compact rows, clear status and priority icons, keyboard shortcuts for
+everything common.
 
 ## Colours
 

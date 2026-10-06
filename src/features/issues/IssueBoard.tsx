@@ -1,4 +1,4 @@
-/** Issues as cards in columns, one column per group, like Linear's board. */
+/** Issues as cards in columns, one column per group. */
 import { Link } from 'wouter'
 import { Plus } from 'lucide-react'
 import { PersonAvatar } from '@/components/Avatar'

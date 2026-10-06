@@ -99,7 +99,7 @@ export function groupIssues(issues: Issue[], display: Display, ctx: GroupCtx, ta
 }
 
 /**
- * Put each sub-issue right under its parent when both are in the same group, like Linear's list.
+ * Put each sub-issue right under its parent when both are in the same group.
  * Sub-issues whose parent is elsewhere stay where they are, at depth 0.
  */
 export function nestChildren(issues: Issue[]): { issue: Issue; depth: number }[] {
