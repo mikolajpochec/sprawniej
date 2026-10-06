@@ -51,6 +51,8 @@ export interface SyncStatus {
   pending: number
   /** first download of a workspace: how far along */
   progress?: string
+  /** this tab has brought in teammates' changes at least once since the workspace opened */
+  synced?: boolean
 }
 
 export const useSync = create<SyncStatus>()(() => ({ state: 'loading', pending: 0 }))
@@ -120,7 +122,7 @@ export class Workspace {
     const ws = new Workspace(repo, token, me)
     resetProjection()
     useData.setState({ ...EMPTY, me })
-    useSync.setState({ state: 'loading', pending: 0, detail: undefined, progress: undefined })
+    useSync.setState({ state: 'loading', pending: 0, detail: undefined, progress: undefined, synced: false })
     const leads = await ws.tabs.lead(() => void ws.takeOver())
     if (leads) await ws.lead()
     else await ws.follow()
@@ -373,7 +375,7 @@ export class Workspace {
         await this.pull()
         await this.save()
         this.retryDelay = 5_000
-        useSync.setState({ state: this.pending.size ? 'saving' : 'saved', pending: this.pending.size, detail: undefined })
+        useSync.setState({ state: this.pending.size ? 'saving' : 'saved', pending: this.pending.size, detail: undefined, synced: true })
         if (this.pending.size) this.scheduleSave()
       } catch (e) {
         this.report(e)

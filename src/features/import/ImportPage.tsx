@@ -300,7 +300,7 @@ export function ImportPage() {
         </ul>
         {c.archived > 0 && (
           <p className="mt-5 text-sm text-muted-foreground">
-            {c.archived === 1 ? 'One issue was finished long ago, so it goes' : `${c.archived.toLocaleString()} issues were finished long ago, so they go`} straight to the
+            {c.archived === 1 ? 'One of the issues was finished long ago, so it goes' : `${c.archived.toLocaleString()} of the issues were finished long ago, so they go`} to the
             archive. You can still find and open {c.archived === 1 ? 'it' : 'them'}.
           </p>
         )}

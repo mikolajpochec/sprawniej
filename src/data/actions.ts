@@ -388,11 +388,20 @@ function mendArchive() {
     if (!active.length && !loose.length) continue
     editArchive(files, path, team, (old) =>
       old
-        .filter((r) => !active.includes(r.id))
+        .filter((r) => {
+          if (!active.includes(r.id)) return true
+          // the issue came back: so do its comments that only the archive still has
+          const issue = s.issues[r.id]
+          const here = new Set((s.comments[r.id] ?? []).map((c) => c.id))
+          for (const c of r.comments) if (!here.has(c.id)) files.set(paths.comment(issue.team, { ...c, issue: r.id }), commentFile({ ...c, issue: r.id }))
+          return false
+        })
         .map((r) => {
           if (!loose.includes(r.id)) return r
-          const known = new Set(r.comments.map((c) => c.id))
-          return { ...r, comments: [...r.comments, ...s.comments[r.id].filter((c) => !known.has(c.id))].sort((a, b) => a.createdAt.localeCompare(b.createdAt)) }
+          // a comment added or edited meanwhile joins the archived issue; the newer copy wins
+          const newer = new Map(s.comments[r.id].map((c) => [c.id, c]))
+          const merged = [...r.comments.filter((c) => !newer.has(c.id)), ...newer.values()]
+          return { ...r, comments: merged.sort((a, b) => a.createdAt.localeCompare(b.createdAt)) }
         }),
     )
     for (const id of loose) for (const c of s.comments[id]) files.set(paths.comment(team, c), null)

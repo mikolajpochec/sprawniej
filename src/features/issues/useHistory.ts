@@ -11,19 +11,23 @@ import { useSync, workspace } from '@/sync/engine'
 /** `complete`: loaded after the issue's latest change was saved, so nothing is missing */
 const cache = new Map<string, { updatedAt: string; complete: boolean; events: HistoryEvent[] }>()
 
-/** a move shows up as the oldest save in the new place, "Move ENG-3 to Design as DES-7" */
-const MOVED_FROM = /^Move ([A-Z][A-Z0-9]*)-\d+ to /
+/** the save that moved this issue here: "Move ENG-3 to Design as DES-7", alone or as one line of a bigger save */
+export const movedFrom = (message: string, ref: string) =>
+  new RegExp(`^(?:- )?Move ([A-Z][A-Z0-9]*)-\\d+ to .+ as ${ref}$`, 'm').exec(message)?.[1]
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /** the "last changed" time in a version of an issue file */
 const savedAt = (text: string | null | undefined) => /^updatedAt: ['"]?([^'"\n]+)/m.exec(text ?? '')?.[1]
+const numberIn = (text: string | null | undefined) => /^number: (\d+)/m.exec(text ?? '')?.[1]
 
 /** `latest`: the issue was just saved, so GitHub's newest version should be this one (it can take a moment) */
 async function load(issue: Issue, latest: boolean): Promise<HistoryEvent[]> {
   const ws = workspace()
   if (!ws) return []
+  // oldest first: each path's saves in GitHub's order (newest first, so reversed), older paths before newer ones
   const versions: Version[] = []
   let path = paths.issue(issue)
+  let team = issue.team
   // follow the issue back through moves between teams (a few at most)
   for (let hop = 0; hop < 4; hop++) {
     let found = (await ws.history(path)).map((v) => ({ ...v, path }))
@@ -33,12 +37,15 @@ async function load(issue: Issue, latest: boolean): Promise<HistoryEvent[]> {
       await wait(1500 * (retry + 1))
       found = (await ws.history(path)).map((v) => ({ ...v, path }))
     }
-    versions.push(...found)
-    const from = MOVED_FROM.exec(found.at(-1)?.message ?? '')?.[1]
+    versions.unshift(...found.reverse())
+    const oldest = found[0]
+    const ref = `${team}-${numberIn(oldest?.text) ?? issue.number}`
+    const from = oldest && movedFrom(oldest.message, ref)
     if (!from || found.length >= 100) break
     const older = paths.issue({ team: from, id: issue.id })
     if (older === path) break
     path = older
+    team = from
   }
   return issueEvents(versions)
 }

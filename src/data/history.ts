@@ -20,7 +20,7 @@ export type Change =
   | { kind: 'estimate'; from: number | null; to: number | null }
   /** another team: a new key and number */
   | { kind: 'team'; from: string; to: string }
-  /** the file went away (archived, or deleted and then brought back by an edit) */
+  /** the file went away (archived, or deleted and then brought back by an edit); `message` = the whole save message */
   | { kind: 'removed'; message: string }
   | { kind: 'restored' }
 
@@ -100,18 +100,20 @@ function combine(a: Change, b: Change): Change | null | undefined {
 }
 
 /**
- * Versions of an issue file (any order, possibly from several paths when it moved between teams) → what happened,
- * oldest first. The first version is the issue being created, which the page shows from the issue's own fields.
+ * Versions of an issue file, oldest first in the order they were saved (possibly from several paths when it moved
+ * between teams: the older path's versions first) → what happened, oldest first. Save times come from each person's
+ * own clock, so they don't decide the order. The first version is the issue being created, which the page shows from
+ * the issue's own fields.
  */
 export function issueEvents(versions: Version[]): HistoryEvent[] {
   // one state per save: a move removes the old file and writes the new one in the same commit
   const byCommit = new Map<string, { at: string; by: string; issue: Issue | null; message: string }>()
-  for (const v of [...versions].sort((a, b) => a.at.localeCompare(b.at))) {
+  for (const v of versions) {
     const issue = parse(v)
     if (v.text !== null && !issue) continue // a version that can't be read (edited by hand) is skipped
     const seen = byCommit.get(v.oid)
     if (seen) seen.issue ??= issue
-    else byCommit.set(v.oid, { at: v.at, by: v.login ?? v.name, issue, message: v.message.split('\n')[0] })
+    else byCommit.set(v.oid, { at: v.at, by: v.login ?? v.name, issue, message: v.message })
   }
   const out: HistoryEvent[] = []
   let prev: Issue | null | undefined
@@ -130,7 +132,7 @@ export function issueEvents(versions: Version[]): HistoryEvent[] {
       // fold into the same person's last change of this kind, if it was moments ago and nothing else came between
       const last = [...out].reverse().find((e) => e.change.kind === change.kind)
       const between = last ? out.slice(out.indexOf(last) + 1).some((e) => e.by !== step.by) : true
-      const merged = last && !between && last.by === step.by && Date.parse(step.at) - Date.parse(last.at) < together(change.kind) ? combine(last.change, change) : undefined
+      const merged = last && !between && last.by === step.by && Math.abs(Date.parse(step.at) - Date.parse(last.at)) < together(change.kind) ? combine(last.change, change) : undefined
       if (merged === undefined) out.push({ at: step.at, by: step.by, change })
       else if (merged === null) out.splice(out.indexOf(last!), 1)
       else Object.assign(last!, { at: step.at, change: merged })

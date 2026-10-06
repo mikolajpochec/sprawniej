@@ -118,6 +118,7 @@ describe('building the import', () => {
     expect(Object.values(ws3.issues).map((i) => i.title).sort()).toEqual(['Charts are slow', 'Old idea'])
     const archive = Object.fromEntries((archived as { value: ArchivedIssue[] }).value.map((a) => [a.id, a]))
     const again = buildImport(data, choices, { ...ws3, me: 'mikolaj', archive }, ids(), '2026-10-08T00:00:00.000Z')
+    expect(again.counts).toMatchObject({ issues: 3, archived: 1 })
     expect([...again.files.keys()].some((p) => p.includes('/archive/') || p.includes(archive[Object.keys(archive)[0]].id))).toBe(false)
     // the sub-issue's parent link still points at the same issue
     expect(Object.values(read(again.files).issues).find((i) => i.title === 'Charts are slow')?.id).toBe(Object.values(ws3.issues).find((i) => i.title === 'Charts are slow')?.id)

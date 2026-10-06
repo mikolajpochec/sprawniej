@@ -80,8 +80,10 @@ function Loader({ children }: { children: ReactNode }) {
       void tidyArchive()
       return true
     }
-    if (useSync.getState().state === 'saved' && run()) return
-    const stop = useSync.subscribe((s) => s.state === 'saved' && run() && stop())
+    // only once teammates' latest changes are in, so nothing is archived from an old copy
+    const ready = (s: { state: string; synced?: boolean }) => s.state === 'saved' && !!s.synced
+    if (ready(useSync.getState()) && run()) return
+    const stop = useSync.subscribe((s) => ready(s) && run() && stop())
     return stop
   }, [load.state, hasWorkspaceFile, repo])
 

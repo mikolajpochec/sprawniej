@@ -123,7 +123,7 @@ export interface Existing {
 
 export interface ImportResult {
   files: Map<string, string | null>
-  /** `archived`: of the issues, how many went straight into the archive (finished long ago) */
+  /** `archived`: of the issues, how many are in the archive (finished long ago, or archived here since) */
   counts: { teams: number; labels: number; projects: number; issues: number; comments: number; archived: number }
   /** imported issues that couldn't keep their number, because the team here already used it */
   renumbered: { from: string; to: string }[]
@@ -254,7 +254,12 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
   for (const li of issues) raise(issuesByLinear.get(li.id)?.team ?? keyOf(li.team), li.number)
   const plan: { li: LIssue; team: string; number: number }[] = []
   for (const li of [...issues].sort((a, b) => a.number - b.number)) {
-    if (archivedByLinear.has(li.id)) continue
+    if (archivedByLinear.has(li.id)) {
+      // archived here since: it stays as it is, and counts as in the archive
+      counts.issues++
+      counts.archived++
+      continue
+    }
     const old = issuesByLinear.get(li.id)
     const team = old?.team ?? keyOf(li.team)
     const used = taken.get(team) ?? new Set<number>()

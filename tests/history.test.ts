@@ -53,3 +53,20 @@ describe('issue history', () => {
     expect(issueEvents([v(0, 'ana', base), broken, v(10, 'bob', { ...base, priority: 2 })]).map((e) => e.change.kind)).toEqual(['priority'])
   })
 })
+
+describe('following moves', () => {
+  test('a move is found alone or as one line of a bigger save, and only for this issue', async () => {
+    const { movedFrom } = await import('@/features/issues/useHistory')
+    expect(movedFrom('Move ENG-3 to Design as DES-7', 'DES-7')).toBe('ENG')
+    expect(movedFrom('ENG-9: edit title (and 2 more changes)\n\n- ENG-9: edit title\n- Move ENG-3 to Design as DES-7\n', 'DES-7')).toBe('ENG')
+    expect(movedFrom('Move ENG-4 to Design as DES-8', 'DES-7')).toBeUndefined()
+  })
+  test('save order decides, not the clocks of the people saving', () => {
+    // bob's clock runs late: his later save carries an earlier time
+    const events = issueEvents([v(10, 'ana', base), v(20, 'ana', { ...base, status: 'in_progress' }), v(5, 'bob', { ...base, status: 'done' })])
+    expect(events.map((e) => e.change)).toEqual([
+      { kind: 'status', from: 'todo', to: 'in_progress' },
+      { kind: 'status', from: 'in_progress', to: 'done' },
+    ])
+  })
+})

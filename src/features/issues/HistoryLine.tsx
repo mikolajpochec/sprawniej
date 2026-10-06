@@ -64,7 +64,7 @@ function useText(change: Change, by: string): ReactNode {
     case 'team':
       return <>moved it from <B>{change.from}</B> to <B>{change.to}</B></>
     case 'removed':
-      return change.message.startsWith('Archive') ? 'archived it' : 'removed it'
+      return /^(?:- )?Archive /m.test(change.message) ? 'archived it' : 'removed it'
     case 'restored':
       return 'brought it back'
   }

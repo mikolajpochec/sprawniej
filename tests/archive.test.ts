@@ -99,6 +99,31 @@ describe('archiving', () => {
     expect([...archiveFiles().keys()]).toEqual([])
   })
 
+  test("an issue brought back by someone's edit gets its comments back from the archive", async () => {
+    const i = createIssue({ team: 'ENG', title: 'Edited meanwhile' })
+    createComment(i.id, 'keep me')
+    const before = (await import('@/data/files')).issueToFile(state().issues[i.id])
+    archiveIssues([i.id])
+    expect(state().comments[i.id]).toBeUndefined()
+    // the edit wins over the removal: the file is back, the comment files are not
+    applyFiles(new Map([[paths.issue(i), before.replace('title: Edited meanwhile', 'title: Edited')]]), 'ana')
+    await tidyArchive()
+    expect(state().comments[i.id]?.map((c) => c.body)).toEqual(['keep me'])
+    expect([...archiveFiles().keys()]).toEqual([])
+  })
+
+  test('a comment edited while its issue was archived keeps the edit', async () => {
+    const i = createIssue({ team: 'ENG', title: 'Quiet' })
+    const c = createComment(i.id, 'first words')!
+    archiveIssues([i.id])
+    // the edited comment file comes back (edit beats delete), the issue stays archived
+    applyFiles(new Map([[paths.comment('ENG', c), (await import('@/data/files')).commentToFile({ ...c, body: 'better words' })]]), 'ana')
+    await tidyArchive()
+    loadArchive()
+    expect(state().archive[i.id].comments.map((x) => x.body)).toEqual(['better words'])
+    expect(state().comments[i.id]).toBeUndefined()
+  })
+
   test('a line that cannot be read is skipped, the rest still count', () => {
     const text = '{"id":"x"}\nnot json\n'
     const p = parseFile('teams/ENG/archive/2026-01.jsonl', text)
