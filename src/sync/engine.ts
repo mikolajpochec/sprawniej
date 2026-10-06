@@ -550,6 +550,8 @@ export class Workspace {
       } catch (e) {
         if (e instanceof NotFastForward) {
           this.etag = undefined
+          // a short, random wait, so two people saving at once don't meet again
+          await new Promise((r) => setTimeout(r, 150 + Math.random() * 600))
           await this.pull()
           continue
         }

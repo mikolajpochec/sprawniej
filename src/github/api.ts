@@ -397,7 +397,8 @@ export async function moveBranch(token: string, r: RepoRef, branch: string, sha:
   try {
     await request(token, 'PATCH', `/repos/${r.owner}/${r.repo}/git/refs/heads/${encodeURIComponent(branch)}`, { body: { sha, force: false } })
   } catch (e) {
-    if (e instanceof GitHubError && e.status === 422 && /fast.?forward/i.test(e.message)) throw new NotFastForward()
+    // "cannot be updated": two saves reached GitHub at the same moment; like someone saving first, pull and try again
+    if (e instanceof GitHubError && e.status === 422 && /fast.?forward|cannot be updated/i.test(e.message)) throw new NotFastForward()
     throw e
   }
 }
