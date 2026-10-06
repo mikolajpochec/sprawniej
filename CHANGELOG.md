@@ -3,6 +3,11 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.5.0: Tidier boards
+*2026-10-07*
+
+- Boards show only columns with issues; empty ones wait under Hidden columns, and you can drop a card on them
+
 ## 0.4.0: Views, projects and labels
 *2026-10-07*
 

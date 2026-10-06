@@ -121,7 +121,7 @@ function GroupSection({ group, ids, issueOf, onAdd }: SectionProps) {
 }
 
 export function IssueList({ groups, display, onAdd }: { groups: Group[]; display: Display; onAdd?: (group: Group) => void }) {
-  const drag = useIssueDrag(groups, display, true)
+  const drag = useIssueDrag(groups, display, { nest: true })
   const active = drag.activeId ? drag.issue(drag.activeId) : undefined
   const issues = useData((s) => s.issues)
   return (
