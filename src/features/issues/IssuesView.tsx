@@ -83,9 +83,9 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
     ) : undefined
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 px-8 pt-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 md:px-8 pt-6">
       {header}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3">
         {left}
         <div className="ml-auto flex items-center gap-2">
           <FilterButton hide={hideFilters} onPick={setOpenFilter} />
@@ -95,8 +95,8 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
             value={display.layout}
             onChange={(layout) => setDisplay({ layout })}
             options={[
-              { value: 'list', label: <><List /> List</> },
-              { value: 'board', label: <><Columns3 /> Board</> },
+              { value: 'list', name: 'List', label: <><List /> <span className="hidden sm:inline">List</span></> },
+              { value: 'board', name: 'Board', label: <><Columns3 /> <span className="hidden sm:inline">Board</span></> },
             ]}
           />
         </div>

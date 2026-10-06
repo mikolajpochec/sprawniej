@@ -39,8 +39,8 @@ export function DisplayOptions({ display, onChange, onReset, tab }: Props) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="h-10 gap-2 text-[15px]">
-          <SlidersHorizontal /> Display
+        <Button variant="outline" className="h-10 gap-2 text-[15px]" aria-label="Display">
+          <SlidersHorizontal /> <span className="hidden sm:inline">Display</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-80 flex-col gap-4">

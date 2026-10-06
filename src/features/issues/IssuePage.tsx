@@ -16,6 +16,8 @@ import { createLabel, deleteIssue, markRead, moveIssueToTeam, updateIssue } from
 import { isUnread } from '@/data/select'
 import { findByRef, issueRef, useData } from '@/data/store'
 import { Editor } from '@/editor/LazyEditor'
+import { useMedia } from '@/lib/useNarrow'
+import { cn } from '@/lib/utils'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog'
@@ -59,13 +61,111 @@ export function IssuePage() {
   const projectItems = useProjectItems(issue?.team)
   const parentItems = useParentItems(issue)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // under 1024 px the properties sit under the title instead of in a column of their own
+  const stacked = useMedia('(max-width: 1023px)')
   useCrumbs(issue && team ? [{ label: `${team.emoji} ${team.name}`, href: `/team/${team.key}/issues` }, { label: issueRef(issue) }] : [])
   if (!issue) return <NotFound />
   const assignee = issue.assignee ? people[issue.assignee] : undefined
 
+  const properties = (
+    <>
+    <div className="flex flex-col gap-1">
+      <Property label="Status">
+        <Picker placeholder="Change status…" items={statusItems} value={issue.status} onSelect={(status) => updateIssue(issue.id, { status })}>
+          <button type="button" className={pick}>
+            <StatusIcon status={issue.status} /> {statusOf(issue.status).name}
+          </button>
+        </Picker>
+      </Property>
+      <Property label="Priority">
+        <Picker placeholder="Change priority…" items={priorityItems} value={issue.priority} onSelect={(priority) => updateIssue(issue.id, { priority })}>
+          <button type="button" className={pick}>
+            <PriorityIcon priority={issue.priority} /> {PRIORITY_NAMES[issue.priority]}
+          </button>
+        </Picker>
+      </Property>
+      <Property label="Assignee">
+        <Picker placeholder="Assign to…" items={peopleItems} value={issue.assignee} onSelect={(assignee) => updateIssue(issue.id, { assignee })}>
+          <button type="button" className={pick}>
+            <PersonAvatar person={assignee} login={issue.assignee} />
+            {issue.assignee ? (assignee?.name ?? issue.assignee) : <span className="text-muted-foreground">No one</span>}
+          </button>
+        </Picker>
+      </Property>
+      <Property label="Labels">
+        <Picker
+          multiple
+          placeholder="Labels…"
+          items={labelItems}
+          value={issue.labels}
+          onSelect={(ids) => updateIssue(issue.id, { labels: ids })}
+          onCreate={(name) => updateIssue(issue.id, { labels: [...issue.labels, createLabel(name).id] })}
+          createLabel={(name) => `Create label “${name}”`}
+        >
+          <button type="button" className={`${pick} flex-wrap`}>
+            {issue.labels.filter((id) => labels[id]).length ? (
+              issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)
+            ) : (
+              <span className="text-muted-foreground">Add labels</span>
+            )}
+          </button>
+        </Picker>
+      </Property>
+      <Property label="Project">
+        <Picker placeholder="Move to project…" items={projectItems} value={issue.project} onSelect={(p) => updateIssue(issue.id, { project: p })}>
+          <button type="button" className={pick}>
+            {project ? (
+              <>
+                <span className="w-4 text-center leading-none">{project.emoji}</span> {project.name}
+              </>
+            ) : (
+              <span className="text-muted-foreground">No project</span>
+            )}
+          </button>
+        </Picker>
+      </Property>
+      <Property label="Parent">
+        <Picker placeholder="Make a sub-issue of…" items={parentItems} value={issue.parent} onSelect={(p) => updateIssue(issue.id, { parent: p })}>
+          <button type="button" className={pick}>
+            {parent ? (
+              <span className="truncate">
+                <span className="text-muted-foreground">{issueRef(parent)}</span> {parent.title}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">None</span>
+            )}
+          </button>
+        </Picker>
+      </Property>
+      {teams.length > 1 && (
+        <Property label="Team">
+          <Picker
+            placeholder="Move to team…"
+            items={teams.map((t) => ({ value: t.key, label: t.name, icon: <span className="w-4 text-center leading-none">{t.emoji}</span> }))}
+            value={issue.team}
+            onSelect={(key) => {
+              const moved = moveIssueToTeam(issue.id, key)
+              if (moved && moved.team !== issue.team) navigate(`/issue/${issueRef(moved)}`, { replace: true })
+            }}
+          >
+            <button type="button" className={pick}>
+              <span className="w-4 text-center leading-none">{team?.emoji}</span> {team?.name}
+            </button>
+          </Picker>
+        </Property>
+      )}
+    </div>
+    <p className={cn('px-2 text-xs text-muted-foreground', stacked ? 'mt-3' : 'mt-8')}>
+      Created {shortDate(issue.createdAt)} by {people[issue.createdBy]?.name ?? issue.createdBy}
+      <br />
+      Last changed {shortDate(issue.updatedAt)}
+    </p>
+    </>
+  )
+
   return (
     <div className="flex min-h-0 flex-1">
-      <article className="min-w-0 flex-1 overflow-y-auto px-12 py-10">
+      <article className="min-w-0 flex-1 overflow-y-auto px-4 py-6 lg:px-12 lg:py-10">
         <div className="mx-auto max-w-3xl">
           {parent && (
             <Link href={`/issue/${issueRef(parent)}`} className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
@@ -95,6 +195,7 @@ export function IssuePage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          {stacked && <div className="mt-4 rounded-lg border px-2 py-2">{properties}</div>}
           <Editor key={issue.id} value={issue.description} onChange={(description) => updateIssue(issue.id, { description })} className="mt-4" />
 
           <SubIssues issue={issue} />
@@ -102,99 +203,7 @@ export function IssuePage() {
         </div>
       </article>
 
-      <aside className="w-80 shrink-0 overflow-y-auto border-l px-5 py-8">
-        <div className="flex flex-col gap-1">
-          <Property label="Status">
-            <Picker placeholder="Change status…" items={statusItems} value={issue.status} onSelect={(status) => updateIssue(issue.id, { status })}>
-              <button type="button" className={pick}>
-                <StatusIcon status={issue.status} /> {statusOf(issue.status).name}
-              </button>
-            </Picker>
-          </Property>
-          <Property label="Priority">
-            <Picker placeholder="Change priority…" items={priorityItems} value={issue.priority} onSelect={(priority) => updateIssue(issue.id, { priority })}>
-              <button type="button" className={pick}>
-                <PriorityIcon priority={issue.priority} /> {PRIORITY_NAMES[issue.priority]}
-              </button>
-            </Picker>
-          </Property>
-          <Property label="Assignee">
-            <Picker placeholder="Assign to…" items={peopleItems} value={issue.assignee} onSelect={(assignee) => updateIssue(issue.id, { assignee })}>
-              <button type="button" className={pick}>
-                <PersonAvatar person={assignee} login={issue.assignee} />
-                {issue.assignee ? (assignee?.name ?? issue.assignee) : <span className="text-muted-foreground">No one</span>}
-              </button>
-            </Picker>
-          </Property>
-          <Property label="Labels">
-            <Picker
-              multiple
-              placeholder="Labels…"
-              items={labelItems}
-              value={issue.labels}
-              onSelect={(ids) => updateIssue(issue.id, { labels: ids })}
-              onCreate={(name) => updateIssue(issue.id, { labels: [...issue.labels, createLabel(name).id] })}
-              createLabel={(name) => `Create label “${name}”`}
-            >
-              <button type="button" className={`${pick} flex-wrap`}>
-                {issue.labels.filter((id) => labels[id]).length ? (
-                  issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)
-                ) : (
-                  <span className="text-muted-foreground">Add labels</span>
-                )}
-              </button>
-            </Picker>
-          </Property>
-          <Property label="Project">
-            <Picker placeholder="Move to project…" items={projectItems} value={issue.project} onSelect={(p) => updateIssue(issue.id, { project: p })}>
-              <button type="button" className={pick}>
-                {project ? (
-                  <>
-                    <span className="w-4 text-center leading-none">{project.emoji}</span> {project.name}
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">No project</span>
-                )}
-              </button>
-            </Picker>
-          </Property>
-          <Property label="Parent">
-            <Picker placeholder="Make a sub-issue of…" items={parentItems} value={issue.parent} onSelect={(p) => updateIssue(issue.id, { parent: p })}>
-              <button type="button" className={pick}>
-                {parent ? (
-                  <span className="truncate">
-                    <span className="text-muted-foreground">{issueRef(parent)}</span> {parent.title}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">None</span>
-                )}
-              </button>
-            </Picker>
-          </Property>
-          {teams.length > 1 && (
-            <Property label="Team">
-              <Picker
-                placeholder="Move to team…"
-                items={teams.map((t) => ({ value: t.key, label: t.name, icon: <span className="w-4 text-center leading-none">{t.emoji}</span> }))}
-                value={issue.team}
-                onSelect={(key) => {
-                  const moved = moveIssueToTeam(issue.id, key)
-                  if (moved && moved.team !== issue.team) navigate(`/issue/${issueRef(moved)}`, { replace: true })
-                }}
-              >
-                <button type="button" className={pick}>
-                  <span className="w-4 text-center leading-none">{team?.emoji}</span> {team?.name}
-                </button>
-              </Picker>
-            </Property>
-          )}
-        </div>
-        <p className="mt-8 px-2 text-xs text-muted-foreground">
-          Created {shortDate(issue.createdAt)} by {people[issue.createdBy]?.name ?? issue.createdBy}
-          <br />
-          Last changed {shortDate(issue.updatedAt)}
-        </p>
-      </aside>
+      {!stacked && <aside className="w-80 shrink-0 overflow-y-auto border-l px-5 py-8">{properties}</aside>}
 
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent>

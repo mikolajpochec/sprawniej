@@ -111,7 +111,7 @@ export function InboxPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-8">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-4 md:px-8">
         <h1 className="text-[15px] font-medium">Inbox</h1>
         {unread > 0 && <span className="text-sm text-muted-foreground">{unread} unread</span>}
         {inbox.length > 0 && (

@@ -26,7 +26,7 @@ export function SaveStatus() {
       <TooltipTrigger asChild>
         <span className="flex items-center gap-1.5 text-sm text-muted-foreground" role="status" aria-live="polite" data-state={state}>
           {view.icon}
-          {view.label}
+          <span className="hidden sm:inline">{view.label}</span>
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-64">{view.tip}</TooltipContent>

@@ -1,6 +1,6 @@
 /**
  * Drag-n-drop for the list and the board (dnd-kit). While you drag, the issue moves between groups on screen
- * (local state only). On drop it gets one change: a new place among its neighbours, plus the status, priority,
+ * (local state only). On a touch screen you press and hold an issue to pick it up. On drop it gets one change: a new place among its neighbours, plus the status, priority,
  * assignee or project of the group it landed in. Space picks an issue up from the keyboard, arrows move it,
  * Space drops it and Esc puts it back.
  */
@@ -9,9 +9,10 @@ import {
   closestCenter,
   getFirstCollision,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   pointerWithin,
   rectIntersection,
+  TouchSensor,
   useSensor,
   useSensors,
   type CollisionDetection,
@@ -67,7 +68,9 @@ export function useIssueDrag(groups: Group[], display: Display, { nest = false, 
   }, [live])
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // on a touch screen, press and hold to pick an issue up; a quick swipe still scrolls
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
       // Enter still opens the issue; Space picks it up and drops it

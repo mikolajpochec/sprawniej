@@ -41,7 +41,7 @@ function IssueCard({ issue, dragRef, dragProps, style, ghost, lifted }: CardProp
       data-issue-id={lifted ? undefined : issue.id}
       style={style}
       className={cn(
-        'flex flex-col gap-2 rounded-lg border bg-card p-3 text-[15px] shadow-xs hover:border-ring/60 focus-visible:border-ring focus-visible:outline-none',
+        'flex flex-col gap-2 rounded-lg border bg-card p-3 text-[15px] shadow-xs hover:border-ring/60 focus-visible:border-ring focus-visible:outline-none touch-manipulation select-none [-webkit-touch-callout:none]',
         ghost && 'opacity-30',
         lifted && 'cursor-grabbing rotate-1 shadow-lg',
       )}

@@ -43,23 +43,23 @@ export function IssueRow({ issue, depth = 0, dragRef, dragProps, style, ghost, l
       href={`/issue/${issueRef(issue)}`}
       data-issue-id={lifted ? undefined : issue.id}
       className={cn(
-        'group flex h-11 items-center gap-3 rounded-md px-4 text-[15px] hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none',
+        'group flex h-11 items-center gap-2 rounded-md px-2 text-[15px] sm:gap-3 sm:px-4 hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none touch-manipulation select-none [-webkit-touch-callout:none]',
         ghost && 'opacity-30',
         lifted && 'cursor-grabbing border bg-popover shadow-lg',
       )}
       style={{ paddingLeft: `${1 + depth * 2}rem`, ...style }}
     >
       <PriorityIcon priority={issue.priority} />
-      <span className="w-16 shrink-0 text-muted-foreground tabular-nums">{issueRef(issue)}</span>
+      <span className="hidden w-16 shrink-0 text-muted-foreground tabular-nums sm:inline">{issueRef(issue)}</span>
       <StatusIcon status={issue.status} />
       <span className={cn('min-w-0 truncate', closed && 'text-muted-foreground')}>
         <TitleText title={issue.title} />
       </span>
       <SubIssueCount id={issue.id} className="shrink-0" />
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        {issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)}
+        <span className="hidden items-center gap-2 md:flex">{issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)}</span>
         <PersonAvatar person={assignee} login={issue.assignee} />
-        <span className="w-14 text-right text-sm text-muted-foreground">{shortDate(issue.createdAt)}</span>
+        <span className="hidden w-14 text-right text-sm text-muted-foreground sm:inline">{shortDate(issue.createdAt)}</span>
       </span>
     </Link>
   )

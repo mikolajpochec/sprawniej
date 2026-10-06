@@ -10,6 +10,8 @@ export interface Crumb {
 
 interface Chrome {
   sidebarOpen: boolean
+  /** the slide-in menu on a phone */
+  menuOpen: boolean
   crumbs: Crumb[]
   toggleSidebar: () => void
 }
@@ -18,6 +20,7 @@ export const useChrome = create<Chrome>()(
   persist(
     (set) => ({
       sidebarOpen: true,
+      menuOpen: false,
       crumbs: [],
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
     }),
