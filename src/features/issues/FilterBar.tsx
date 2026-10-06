@@ -54,8 +54,8 @@ export function FilterButton({ hide = [], onPick }: { hide?: FilterKey[]; onPick
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="h-10 gap-2 text-[15px]">
-          <ListFilter /> Filter
+        <Button variant="outline" className="h-10 gap-2 text-[15px]" aria-label="Filter">
+          <ListFilter /> <span className="hidden sm:inline">Filter</span>
         </Button>
       </DropdownMenuTrigger>
       {/* focus goes to the filter's own menu next, not back to this button */}

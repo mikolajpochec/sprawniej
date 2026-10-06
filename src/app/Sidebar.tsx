@@ -127,7 +127,7 @@ export function Sidebar() {
   const myTeams = useData(useShallow((s) => Object.values(s.teams).filter((t) => !s.me || t.members.includes(s.me.login)).map((t) => t.key)))
   const unread = useData((s) => s.inbox.filter((n) => isUnread(n, s.readState)).length)
   return (
-    <aside className="flex h-full w-[17.5rem] shrink-0 flex-col border-r bg-sidebar">
+    <aside className="flex h-full w-full shrink-0 flex-col border-r bg-sidebar md:w-[17.5rem]">
       <div className="flex h-16 items-center gap-3 pr-3 pl-5">
         <Link href="/" className="flex items-center gap-3 text-xl font-semibold tracking-tight">
           <Logo />
@@ -135,7 +135,7 @@ export function Sidebar() {
         </Link>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button type="button" onClick={() => openComposer()} className="ml-auto rounded-lg border p-2 text-sidebar-foreground/90 hover:bg-sidebar-accent" aria-label="New issue">
+            <button type="button" onClick={() => openComposer()} className="ml-auto rounded-lg border p-2 text-sidebar-foreground/90 hover:bg-sidebar-accent" aria-label="New issue" data-tour="new-issue">
               <SquarePen className="size-4" />
             </button>
           </TooltipTrigger>

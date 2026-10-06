@@ -17,6 +17,8 @@ import { shortDate } from './format'
 import { SubIssueCount } from './SubIssueCount'
 import { TitleText } from './TitleText'
 import { dragAnnouncements } from './dragText'
+import { CarryCount } from './CarryCount'
+import { selectionClick, useSelection } from './selection'
 import { AUTO_SCROLL, groupDropId, useIssueDrag } from './useIssueDrag'
 
 interface RowProps {
@@ -35,6 +37,8 @@ interface RowProps {
 export function IssueRow({ issue, depth = 0, dragRef, dragProps, style, ghost, lifted }: RowProps) {
   const assignee = useData((s) => (issue.assignee ? s.people[issue.assignee] : undefined))
   const labels = useData((s) => s.labels)
+  const picked = useSelection((s) => s.ids.includes(issue.id))
+  const carried = useSelection((s) => s.draggingMany) && picked && !lifted
   const closed = issue.status === 'done' || issue.status === 'canceled' || issue.status === 'duplicate'
   return (
     <Link
@@ -42,24 +46,29 @@ export function IssueRow({ issue, depth = 0, dragRef, dragProps, style, ghost, l
       {...dragProps}
       href={`/issue/${issueRef(issue)}`}
       data-issue-id={lifted ? undefined : issue.id}
+      data-picked={picked || undefined}
+      aria-selected={picked || undefined}
+      // capture: the link itself leaves ⌘/Shift-clicks to the browser (new tab), before an onClick would run
+      onClickCapture={(e) => selectionClick(e, issue.id)}
       className={cn(
-        'group flex h-11 items-center gap-3 rounded-md px-4 text-[15px] hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none',
-        ghost && 'opacity-30',
+        'group flex h-11 items-center gap-2 rounded-md px-2 text-[15px] sm:gap-3 sm:px-4 hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none touch-manipulation select-none [-webkit-touch-callout:none]',
+        (ghost || carried) && 'opacity-30',
+        picked && !lifted && 'bg-accent ring-1 ring-inset ring-ring/50',
         lifted && 'cursor-grabbing border bg-popover shadow-lg',
       )}
       style={{ paddingLeft: `${1 + depth * 2}rem`, ...style }}
     >
       <PriorityIcon priority={issue.priority} />
-      <span className="w-16 shrink-0 text-muted-foreground tabular-nums">{issueRef(issue)}</span>
+      <span className="hidden w-16 shrink-0 text-muted-foreground tabular-nums sm:inline">{issueRef(issue)}</span>
       <StatusIcon status={issue.status} />
       <span className={cn('min-w-0 truncate', closed && 'text-muted-foreground')}>
         <TitleText title={issue.title} />
       </span>
       <SubIssueCount id={issue.id} className="shrink-0" />
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        {issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)}
+        <span className="hidden items-center gap-2 md:flex">{issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)}</span>
         <PersonAvatar person={assignee} login={issue.assignee} />
-        <span className="w-14 text-right text-sm text-muted-foreground">{shortDate(issue.createdAt)}</span>
+        <span className="hidden w-14 text-right text-sm text-muted-foreground sm:inline">{shortDate(issue.createdAt)}</span>
       </span>
     </Link>
   )
@@ -135,7 +144,14 @@ export function IssueList({ groups, display, onAdd }: { groups: Group[]; display
             <GroupSection key={g.key} group={g} ids={drag.order[g.key] ?? []} issueOf={drag.issue} onAdd={onAdd} />
           ))}
       </div>
-      <DragOverlay>{active && <IssueRow issue={active} lifted />}</DragOverlay>
+      <DragOverlay>
+        {active && (
+          <div className="relative">
+            <IssueRow issue={active} lifted />
+            <CarryCount />
+          </div>
+        )}
+      </DragOverlay>
     </DndContext>
   )
 }

@@ -60,7 +60,8 @@ function AddRow({ parent, onClose }: { parent: Issue; onClose: () => void }) {
 }
 
 export function SubIssues({ issue }: { issue: Issue }) {
-  const children = useData(useShallow((s) => Object.values(s.issues).filter((i) => i.parent === issue.id))).sort((a, b) => (a.sortOrder < b.sortOrder ? -1 : 1))
+  // sorted inside the selector: sorting its result in place would change the store's cached answer and loop
+  const children = useData(useShallow((s) => Object.values(s.issues).filter((i) => i.parent === issue.id).sort((a, b) => (a.sortOrder < b.sortOrder ? -1 : 1))))
   const [adding, setAdding] = useState(false)
 
   if (!children.length && !adding) {

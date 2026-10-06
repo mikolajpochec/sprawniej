@@ -15,6 +15,9 @@ You need two things, and the join link walks you through both:
 
 You only do this once per browser. The join link also accepts the GitHub invitation for you.
 
+The first time you open your team's issues, four short tips show you around. You can see them again from the
+**Help** page (**Show the tour again**).
+
 ### Inviting someone
 
 Open the menu under your name (bottom left) and choose **Settings and people**. Type their GitHub username and press
@@ -96,8 +99,14 @@ Every list of issues can be shown two ways. Switch with **List / Board** at the 
   card on one to move the issue there.
 
 **Drag and drop** works in both. Drag an issue up or down to change its order, or into another group or column to
-change its status. Your teammates see the new order too. No mouse? Move to an issue with `Tab`, press `Space` to
-pick it up, use the arrow keys, and press `Space` again to drop it (`Esc` puts it back).
+change its status. Your teammates see the new order too. No mouse? Move to an issue with `Tab` (or `J` and `K`),
+press `Space` to pick it up, use the arrow keys, and press `Space` again to drop it (`Esc` puts it back). On a phone,
+press and hold an issue for a moment, then drag it.
+
+**Several at once:** hold `⌘` (or `Ctrl`) and click issues to pick them, or press `X` on each. `Shift`-click picks
+everything between the last one you picked and this one. Drag any picked issue and the others come along, side by
+side. The bar at the bottom changes the status, priority, assignee or labels of all of them (or deletes them);
+`S`, `P`, `A` and `L` do the same. `Esc` lets go of them.
 
 **Display** (next to List / Board) changes how the page looks, just for you:
 
@@ -182,9 +191,15 @@ changes; nothing is copied twice.
 | `A` | Change who it's assigned to |
 | `L` | Change labels |
 | `J` / `K` or `↓` / `↑` | Move to the next or previous issue in a list or board |
+| `X` | Pick the issue (to change or move several at once) |
 | `Enter` | Open it |
 | `Space` | Pick it up to move it with the arrows; `Space` again puts it down |
-| `Esc` | Go back from an issue |
+| `Esc` | Let go of picked issues, or go back from an issue |
+
+## On a phone
+
+Sprawniej works in your phone's browser too. The menu button at the top left opens the sidebar. Press and hold an
+issue to drag it.
 
 ## Pictures
 

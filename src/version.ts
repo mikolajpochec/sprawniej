@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '0.8.0'
+export const APP_VERSION = '0.9.0'
 
 export interface Release {
   version: string
@@ -18,6 +18,18 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '0.9.0',
+    date: '2026-10-07',
+    title: 'Phones, several issues at once, and a welcome tour',
+    notes: [
+      'Works on phones: the sidebar opens from the menu button, and you press and hold an issue to drag it',
+      'Pick several issues with ⌘-click, Shift-click or X, then drag them together or change them all at once',
+      'A short tour shows newcomers around; replay it from Help',
+      'The Display menu closes when you pick up an issue',
+      'Fixed: some issues with sub-issues showed an empty page',
+    ],
+  },
   {
     version: '0.8.0',
     date: '2026-10-07',

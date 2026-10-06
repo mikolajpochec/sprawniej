@@ -1,6 +1,6 @@
 /**
  * Drag-n-drop for the list and the board (dnd-kit). While you drag, the issue moves between groups on screen
- * (local state only). On drop it gets one change: a new place among its neighbours, plus the status, priority,
+ * (local state only). On a touch screen you press and hold an issue to pick it up. On drop it gets one change: a new place among its neighbours, plus the status, priority,
  * assignee or project of the group it landed in. Space picks an issue up from the keyboard, arrows move it,
  * Space drops it and Esc puts it back.
  */
@@ -9,9 +9,10 @@ import {
   closestCenter,
   getFirstCollision,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   pointerWithin,
   rectIntersection,
+  TouchSensor,
   useSensor,
   useSensors,
   type CollisionDetection,
@@ -22,10 +23,11 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { toast } from 'sonner'
-import { moveIssue } from '@/data/actions'
+import { moveIssue, moveIssues } from '@/data/actions'
 import { changedOnly, groupPatch, neighbours } from '@/data/ordering'
 import { nestChildren, type Group } from '@/data/select'
 import type { Display, Issue } from '@/model/schema'
+import { clearSelection, useSelection } from './selection'
 
 const GROUP = 'group:'
 export const groupDropId = (key: string) => `${GROUP}${key}`
@@ -67,7 +69,9 @@ export function useIssueDrag(groups: Group[], display: Display, { nest = false, 
   }, [live])
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // on a touch screen, press and hold to pick an issue up; a quick swipe still scrolls
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
       // Enter still opens the issue; Space picks it up and drops it
@@ -108,12 +112,27 @@ export function useIssueDrag(groups: Group[], display: Display, { nest = false, 
     setLive(null)
     setActiveId(null)
     startGroup.current = null
+    useSelection.setState({ dragging: false, draggingMany: false })
   }
 
   const onDragStart = ({ active }: DragStartEvent) => {
-    setActiveId(String(active.id))
+    const id = String(active.id)
+    setActiveId(id)
     startGroup.current = groupOf(active.id) ?? null
     setLive(base)
+    // dragging an issue you didn't pick moves just that one
+    const picked = useSelection.getState().ids
+    if (!picked.includes(id)) clearSelection()
+    useSelection.setState({ dragging: true, draggingMany: picked.includes(id) && picked.length > 1 })
+  }
+
+  /** the other picked issues that move along, in the order they're shown */
+  const companions = (id: string): string[] => {
+    const picked = new Set(useSelection.getState().ids)
+    if (!picked.has(id) || picked.size < 2) return []
+    return Object.values(base)
+      .flat()
+      .filter((x) => x !== id && picked.has(x))
   }
 
   const onDragOver = ({ active, over }: DragOverEvent) => {
@@ -148,22 +167,31 @@ export function useIssueDrag(groups: Group[], display: Display, { nest = false, 
 
     let ids = onParked ? [id] : orderRef.current[to]
     if (!onParked && !isGroupId(over.id) && over.id !== active.id && ids.includes(String(over.id))) ids = arrayMove(ids, ids.indexOf(id), ids.indexOf(String(over.id)))
+    const others = companions(id)
+    // the others land right after the dragged one
+    if (others.length) ids = ids.filter((x) => !others.includes(x))
     const group = groups.find((g) => g.key === to)
-    const patch = from !== to && group ? changedOnly(issue, groupPatch(display.grouping, group.value)) : {}
+    const groupChange = group ? groupPatch(display.grouping, group.value) : {}
+    const patch = from !== to ? changedOnly(issue, groupChange) : {}
     const manual = display.ordering === 'manual'
     const movedWithin = from === to && ids.indexOf(id) !== base[from].indexOf(id)
+    const othersChange = others.some((x) => {
+      const o = issues.get(x)
+      return o && Object.keys(changedOnly(o, groupChange)).length > 0
+    })
 
-    if (!manual && movedWithin && !Object.keys(patch).length) {
+    if (!manual && movedWithin && !Object.keys(patch).length && !othersChange) {
       toast(`This list is sorted by ${ORDER_NAMES[display.ordering]}`, { description: 'To arrange issues by hand, choose Manual order under Display.' })
     }
-    if (Object.keys(patch).length || (manual && (movedWithin || from !== to))) {
+    if (Object.keys(patch).length || othersChange || (manual && (movedWithin || from !== to || others.length > 0))) {
       // in a list, a sub-issue stays among its siblings and a top-level issue among top-level ones
       const parentHere = (x: string) => {
         const p = issues.get(x)?.parent
         return nest && p && ids.includes(p) ? p : null
       }
       const near = manual ? neighbours(ids, id, parentHere) : null
-      moveIssue(id, { patch, place: near })
+      if (others.length) moveIssues([id, ...others], { patch: groupChange, place: near })
+      else moveIssue(id, { patch, place: near })
     }
     reset()
   }

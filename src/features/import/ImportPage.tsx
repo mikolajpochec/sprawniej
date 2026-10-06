@@ -45,7 +45,7 @@ function Steps({ now }: { now: number }) {
 
 function Panel({ step, title, children, footer }: { step: number; title: string; children: ReactNode; footer?: ReactNode }) {
   return (
-    <div className="flex-1 overflow-y-auto px-8">
+    <div className="flex-1 overflow-y-auto px-4 md:px-8">
       <div className="mx-auto max-w-2xl py-10">
         <Steps now={step} />
         <h1 className="text-2xl font-semibold">{title}</h1>

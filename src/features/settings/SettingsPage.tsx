@@ -229,7 +229,7 @@ export function SettingsPage() {
   const repo = useSession((s) => s.workspace)
   useCrumbs([{ label: 'Settings' }])
   return (
-    <div className="flex-1 overflow-y-auto px-8">
+    <div className="flex-1 overflow-y-auto px-4 md:px-8">
       <div className="mx-auto max-w-3xl py-4">
         <Section title="Workspace">
           <WorkspaceName />

@@ -3,6 +3,15 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.9.0: Phones, several issues at once, and a welcome tour
+*2026-10-07*
+
+- Works on phones: the sidebar opens from the menu button, and you press and hold an issue to drag it
+- Pick several issues with ⌘-click, Shift-click or X, then drag them together or change them all at once
+- A short tour shows newcomers around; replay it from Help
+- The Display menu closes when you pick up an issue
+- Fixed: some issues with sub-issues showed an empty page
+
 ## 0.8.0: Search, shortcuts and pictures
 *2026-10-07*
 

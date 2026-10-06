@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'wouter'
 import { openComposer } from '@/features/issues/composer'
+import { clearSelection, toggleSelected, useSelection } from '@/features/issues/selection'
 import { openPalette, targetIssue, usePalette, type QuickField } from './palette'
 
 /** typing in a field, or a dialog/menu is open: leave the key alone */
@@ -42,10 +43,21 @@ export function useShortcuts() {
         e.preventDefault()
         openComposer()
       } else if (QUICK[key]) {
+        // picked issues first; otherwise the one under the mouse, focused, or open
+        const picked = useSelection.getState().ids
         const issue = targetIssue()
-        if (!issue) return
+        const issues = picked.length && (!issue || picked.includes(issue)) ? picked : issue ? [issue] : []
+        if (!issues.length) return
         e.preventDefault()
-        usePalette.setState({ quick: { issue, field: QUICK[key] } })
+        usePalette.setState({ quick: { issues, field: QUICK[key] } })
+      } else if (key === 'x') {
+        const issue = targetIssue()
+        if (!issue || !document.querySelector(`main [data-issue-id="${issue}"]`)) return
+        e.preventDefault()
+        toggleSelected(issue)
+      } else if (key === 'escape' && useSelection.getState().ids.length) {
+        e.preventDefault()
+        clearSelection()
       } else if (key === 'j' || (key === 'arrowdown' && !dragging)) {
         e.preventDefault()
         step(1)
