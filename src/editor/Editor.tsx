@@ -29,8 +29,8 @@ interface Props {
   placeholder?: string
   autoFocus?: boolean
   className?: string
-  /** ⌘/Ctrl + Enter */
-  onSubmit?: () => void
+  /** ⌘/Ctrl + Enter, with the text as it is right now */
+  onSubmit?: (markdown: string) => void
   /** the field's accessible name */
   label?: string
 }
@@ -67,7 +67,7 @@ export function Editor({ value, onChange, placeholder = 'Add a description…', 
       handleKeyDown: (_view, event) => {
         if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && submitRef.current) {
           flush()
-          submitRef.current()
+          submitRef.current(lastSent.current)
           return true
         }
         return false

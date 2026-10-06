@@ -8,14 +8,15 @@
  */
 import { generateKeyBetween } from 'fractional-indexing'
 import { ulid } from 'ulid'
-import type { Display, Filters, Issue, Label, Person, Project, Team, View } from '@/model/schema'
+import type { Comment, Display, Filters, InboxItem, Issue, Label, Person, Project, ReadState, Team, View } from '@/model/schema'
 import { FORMAT_VERSION } from '@/model/schema'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { workspace } from '@/sync/engine'
 import { commentToFile as commentFile, issueToFile, jsonToFile, paths } from './files'
+import { commentNotes, issueNotes, type Note } from './notify'
 import { keyBetween } from './ordering'
-import { pathOf } from './project'
-import { applyFiles } from './project'
+import { applyFiles, parsedFiles, pathOf } from './project'
+import { isUnread } from './select'
 import { issueRef, useData } from './store'
 
 const now = () => new Date().toISOString()
@@ -27,6 +28,38 @@ function save(files: Map<string, string | null>, message: string) {
 }
 
 const one = (path: string, text: string | null) => new Map([[path, text]])
+
+// ---------- notes for other people's inboxes ----------
+
+const SAME_NOTE_WITHIN = 10 * 60_000
+
+/** the same note from me about the same issue, a few minutes ago (typing "@ania", deleting it, typing it again) */
+function toldRecently(to: string, issue: string, type: InboxItem['type'], me: string): boolean {
+  if (type === 'commented') return false
+  const since = new Date(Date.now() - SAME_NOTE_WITHIN).toISOString()
+  for (const [, p] of parsedFiles()) {
+    if (p.kind === 'inbox' && p.login === to && p.value.actor === me && p.value.issue === issue && p.value.type === type && !p.value.comment && p.value.at > since) return true
+  }
+  return false
+}
+
+/** adds an inbox file for each note to `files`, so the change and its notes are saved together */
+function addNotes(files: Map<string, string | null>, issue: string, notes: Note[]) {
+  const me = useData.getState().me?.login
+  if (!me) return
+  for (const n of notes) {
+    if (!n.comment && toldRecently(n.to, issue, n.type, me)) continue
+    const item: InboxItem = { id: ulid(), type: n.type, issue, actor: me, at: now() }
+    if (n.comment) item.comment = n.comment
+    if (n.status) item.status = n.status
+    files.set(paths.inbox(n.to, item.id), jsonToFile(item))
+  }
+}
+
+/** remove everyone's inbox notes about an issue or a comment that's gone */
+function dropNotes(files: Map<string, string | null>, about: (n: InboxItem) => boolean) {
+  for (const [path, p] of parsedFiles()) if (p.kind === 'inbox' && about(p.value)) files.set(path, null)
+}
 
 // ---------- issues ----------
 
@@ -61,7 +94,10 @@ export function updateIssue(id: string, patch: IssuePatch): void {
   if (patch.status && patch.status !== old.status) {
     next.completedAt = statusOf(patch.status).group === 'completed' ? now() : null
   }
-  save(one(paths.issue(next), issueToFile(next)), describe(old, patch))
+  const files = one(paths.issue(next), issueToFile(next))
+  const s = useData.getState()
+  if (s.me) addNotes(files, id, issueNotes(old, next, s.me.login, s.people))
+  save(files, describe(old, patch))
 }
 
 /**
@@ -92,12 +128,20 @@ export interface NewIssue {
   parent?: string | null
 }
 
-/** Creates an issue at the top of its team's order and returns it. */
+/** where a new sub-issue goes: after its last sibling, or right after its parent */
+function subIssueOrder(issues: Issue[], parent: Issue): string {
+  const anchor = issues.filter((i) => i.parent === parent.id).reduce((max, i) => (i.sortOrder > max ? i.sortOrder : max), parent.sortOrder)
+  const next = issues.reduce<string | null>((min, i) => (i.sortOrder > anchor && (min === null || i.sortOrder < min) ? i.sortOrder : min), null)
+  return keyBetween(anchor, next)
+}
+
+/** Creates an issue at the top of its team's order (a sub-issue: under its siblings) and returns it. */
 export function createIssue(input: NewIssue): Issue {
   const s = useData.getState()
   const inTeam = Object.values(s.issues).filter((i) => i.team === input.team)
   const number = inTeam.reduce((max, i) => Math.max(max, i.number), 0) + 1
   const first = inTeam.reduce<string | null>((min, i) => (min === null || i.sortOrder < min ? i.sortOrder : min), null)
+  const parent = input.parent ? s.issues[input.parent] : undefined
   const issue: Issue = {
     id: ulid(),
     team: input.team,
@@ -110,13 +154,15 @@ export function createIssue(input: NewIssue): Issue {
     labels: input.labels ?? [],
     project: input.project ?? null,
     parent: input.parent ?? null,
-    sortOrder: generateKeyBetween(null, first),
+    sortOrder: parent && parent.team === input.team ? subIssueOrder(inTeam, parent) : generateKeyBetween(null, first),
     createdBy: s.me?.login ?? 'unknown',
     createdAt: now(),
     updatedAt: now(),
     completedAt: null,
   }
-  save(one(paths.issue(issue), issueToFile(issue)), `Create ${issueRef(issue)}: ${issue.title}`)
+  const files = one(paths.issue(issue), issueToFile(issue))
+  if (s.me) addNotes(files, issue.id, issueNotes(null, issue, s.me.login, s.people))
+  save(files, `Create ${issueRef(issue)}: ${issue.title}`)
   return issue
 }
 
@@ -130,6 +176,7 @@ export function deleteIssue(id: string) {
   for (const child of Object.values(s.issues).filter((i) => i.parent === id)) {
     files.set(paths.issue(child), issueToFile({ ...child, parent: null, updatedAt: now() }))
   }
+  dropNotes(files, (n) => n.issue === id)
   save(files, `Delete ${issueRef(issue)}: ${issue.title}`)
 }
 
@@ -150,6 +197,105 @@ export function moveIssueToTeam(id: string, team: string): Issue | undefined {
   }
   save(files, `Move ${issueRef(old)} to ${s.teams[team].name} as ${issueRef(next)}`)
   return next
+}
+
+// ---------- comments ----------
+
+const tidyBody = (body: string) => body.replace(/\s+$/, '')
+
+export function createComment(issueId: string, body: string): Comment | undefined {
+  const s = useData.getState()
+  const issue = s.issues[issueId]
+  if (!issue || !s.me || !body.trim()) return undefined
+  const comment: Comment = { id: ulid(), issue: issueId, author: s.me.login, createdAt: now(), body: tidyBody(body) }
+  const files = one(paths.comment(issue.team, comment), commentFile(comment))
+  addNotes(files, issueId, commentNotes(issue, comment, null, s.comments[issueId] ?? [], s.me.login, s.people))
+  save(files, `${issueRef(issue)}: comment`)
+  return comment
+}
+
+/** only your own comments; an empty text is ignored (delete the comment instead) */
+export function updateComment(issueId: string, id: string, body: string) {
+  const s = useData.getState()
+  const issue = s.issues[issueId]
+  const old = s.comments[issueId]?.find((c) => c.id === id)
+  if (!issue || !old || !s.me || old.author !== s.me.login || !body.trim() || tidyBody(body) === old.body) return
+  const next: Comment = { ...old, body: tidyBody(body), editedAt: now() }
+  const files = one(paths.comment(issue.team, next), commentFile(next))
+  addNotes(files, issueId, commentNotes(issue, next, old.body, [], s.me.login, s.people))
+  save(files, `${issueRef(issue)}: edit comment`)
+}
+
+export function deleteComment(issueId: string, id: string) {
+  const s = useData.getState()
+  const issue = s.issues[issueId]
+  const old = s.comments[issueId]?.find((c) => c.id === id)
+  if (!issue || !old || !s.me || old.author !== s.me.login) return
+  const files = one(paths.comment(issue.team, old), null)
+  dropNotes(files, (n) => n.comment === id)
+  save(files, `${issueRef(issue)}: delete comment`)
+}
+
+// ---------- your inbox ----------
+
+function saveReadState(next: ReadState, files = new Map<string, string | null>(), message = 'Inbox: mark as read') {
+  const me = useData.getState().me?.login
+  if (!me) return
+  files.set(paths.readState(me), jsonToFile(next))
+  save(files, message)
+}
+
+export function markRead(ids: string[]) {
+  const s = useData.getState()
+  const fresh = s.inbox.filter((n) => ids.includes(n.id) && isUnread(n, s.readState)).map((n) => n.id)
+  if (fresh.length) saveReadState({ ...s.readState, read: [...s.readState.read, ...fresh] })
+}
+
+export function markAllRead() {
+  const s = useData.getState()
+  if (!s.inbox.some((n) => isUnread(n, s.readState))) return
+  const latest = s.inbox.reduce((max, n) => (n.at > max ? n.at : max), s.readState.readUntil ?? '')
+  saveReadState({ ...s.readState, readUntil: latest, read: [] }, undefined, 'Inbox: mark all as read')
+}
+
+/** delete notes from your inbox (all of them if `ids` is left out, only read ones with `readOnly`) */
+export function deleteInboxItems(ids?: string[], { readOnly = false } = {}) {
+  const s = useData.getState()
+  const me = s.me?.login
+  if (!me) return
+  const gone = s.inbox.filter((n) => (!ids || ids.includes(n.id)) && (!readOnly || !isUnread(n, s.readState)))
+  if (!gone.length) return
+  const files = new Map<string, string | null>(gone.map((n) => [paths.inbox(me, n.id), null]))
+  const ids2 = new Set(gone.map((n) => n.id))
+  const read = s.readState.read.filter((id) => !ids2.has(id))
+  if (read.length !== s.readState.read.length) files.set(paths.readState(me), jsonToFile({ ...s.readState, read }))
+  save(files, gone.length === 1 ? 'Inbox: delete a note' : `Inbox: delete ${gone.length} notes`)
+}
+
+const DAY = 86_400_000
+/** how long inbox notes are kept: read ones, unread ones, and anyone's (people who left never tidy theirs) */
+export const INBOX_KEEP = { read: 30 * DAY, unread: 90 * DAY, anyone: 180 * DAY }
+
+/**
+ * Keeps the workspace small: removes old notes from your inbox (and very old ones from anyone's) and forgets read
+ * marks for notes that are gone. Runs when the workspace opens; saves nothing when there's nothing to tidy.
+ */
+export function tidyInbox(at = Date.now()) {
+  const s = useData.getState()
+  const me = s.me?.login
+  if (!me) return
+  const before = (ms: number) => new Date(at - ms).toISOString()
+  const files = new Map<string, string | null>()
+  for (const [path, p] of parsedFiles()) {
+    if (p.kind !== 'inbox') continue
+    const n = p.value
+    const old = p.login === me ? n.at < (isUnread(n, s.readState) ? before(INBOX_KEEP.unread) : before(INBOX_KEEP.read)) : n.at < before(INBOX_KEEP.anyone)
+    if (old) files.set(path, null)
+  }
+  const left = new Set(s.inbox.filter((n) => !files.has(paths.inbox(me, n.id))).map((n) => n.id))
+  const read = s.readState.read.filter((id) => left.has(id))
+  if (read.length !== s.readState.read.length) files.set(paths.readState(me), jsonToFile({ ...s.readState, read }))
+  if (files.size) save(files, 'Tidy up old inbox notes')
 }
 
 // ---------- labels ----------

@@ -148,6 +148,14 @@ server does. The code is `src/sync/merge.ts` (`mergeIncoming`), and every row be
 "Later save" means whoever's changes reach GitHub second. Someone who was offline for an hour and then comes back
 counts as later, just as their request would arrive later at a server.
 
+## Inbox notes
+
+A change that someone should hear about (assigned, mentioned, a comment, an issue done) writes one small file per
+person into `inbox/<their login>/`, in the same save as the change. The rules for who hears about what are pure
+functions in `src/data/notify.ts`. Typing the same mention again within ten minutes doesn't send a second note.
+Read marks live in `state/<login>.json`. The inbox tidies itself when the workspace opens (`tidyInbox` in
+`src/data/actions.ts`), so it stays small however long a team uses it.
+
 ## Ordering and drag-n-drop
 
 Each issue has a `sortOrder` string made with [fractional-indexing](https://github.com/rocicorp/fractional-indexing).

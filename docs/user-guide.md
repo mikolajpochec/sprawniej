@@ -73,6 +73,20 @@ note is when you both rewrote the same lines of a description; your text is kept
 
 Big issues can be split into smaller **sub-issues**. The parent shows a counter like `2/5` (two of five done).
 
+- **Add some:** open the issue and choose **Add sub-issues** under the description (or **+** next to "Sub-issues").
+  Type a title and press `Enter`; the field stays open for the next one. `Esc` closes it. **More options** opens
+  the full new issue form.
+- **Make an existing issue a sub-issue:** change **Parent** on the right.
+
+### Comments
+
+Talk about an issue in the **Comments** under it. Type, then press `⌘` `Enter` or **Comment**. Formatting, links,
+`@` mentions and issue IDs work just like in descriptions. A comment you haven't sent yet waits in this browser,
+so you can leave and come back.
+
+To change or remove one of your own comments, use the `⋯` on it: **Edit** (it saves as you type; **Done** when
+you're finished) or **Delete**.
+
 ## Lists and boards
 
 Every list of issues can be shown two ways. Switch with **List / Board** at the top right.
@@ -139,8 +153,16 @@ every issue that has the label.
 
 ## Inbox
 
-Your **Inbox** tells you when someone assigns you an issue, mentions you, or comments on your issue. The number in
-the sidebar is how many you haven't seen.
+Your **Inbox** tells you when someone:
+
+- assigns you an issue,
+- mentions you with `@` in a description or a comment,
+- comments on an issue you created, are assigned to, or commented on,
+- finishes or cancels an issue you created or are assigned to.
+
+The number in the sidebar is how many you haven't read. Opening a note (or its issue) marks it read. Hover a note to
+mark it read or delete it; **Mark all as read** and the `⋯` menu at the top work on all of them. Read notes clear
+themselves after a month, and unread ones after three.
 
 ## Handy keys
 

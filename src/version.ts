@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '0.5.0'
+export const APP_VERSION = '0.6.0'
 
 export interface Release {
   version: string
@@ -18,6 +18,19 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '0.6.0',
+    date: '2026-10-07',
+    title: 'Comments, sub-issues and your inbox',
+    notes: [
+      'Comment on issues, with @ mentions; edit or delete your own comments',
+      'A comment you haven’t sent yet waits for you if you leave the page',
+      'Add sub-issues right from an issue: type a title, press Enter, type the next one',
+      'Your inbox tells you when you’re assigned, mentioned, or someone comments on your issues',
+      'Mark notes as read one by one or all at once, and delete the ones you’re done with',
+      'Old inbox notes clear themselves, so your workspace stays quick',
+    ],
+  },
   {
     version: '0.5.0',
     date: '2026-10-07',

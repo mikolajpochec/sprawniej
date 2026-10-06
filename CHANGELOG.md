@@ -3,6 +3,16 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.6.0: Comments, sub-issues and your inbox
+*2026-10-07*
+
+- Comment on issues, with @ mentions; edit or delete your own comments
+- A comment you haven’t sent yet waits for you if you leave the page
+- Add sub-issues right from an issue: type a title, press Enter, type the next one
+- Your inbox tells you when you’re assigned, mentioned, or someone comments on your issues
+- Mark notes as read one by one or all at once, and delete the ones you’re done with
+- Old inbox notes clear themselves, so your workspace stays quick
+
 ## 0.5.0: Tidier boards
 *2026-10-07*
 

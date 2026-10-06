@@ -2,8 +2,7 @@
  * One issue: title, description, sub-issues and comments on the left, properties on the right.
  * Everything saves by itself; there is no Save button anywhere (CLAUDE.md, golden rules).
  */
-import { useState, type ReactNode } from 'react'
-import { Markdown } from '@/components/Markdown'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'wouter'
 import { useShallow } from 'zustand/react/shallow'
 import { Link2, MoreHorizontal, Trash2 } from 'lucide-react'
@@ -13,7 +12,8 @@ import { NotFound } from '@/app/NotFound'
 import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
 import { Picker } from '@/components/Picker'
-import { createLabel, deleteIssue, moveIssueToTeam, updateIssue } from '@/data/actions'
+import { createLabel, deleteIssue, markRead, moveIssueToTeam, updateIssue } from '@/data/actions'
+import { isUnread } from '@/data/select'
 import { findByRef, issueRef, useData } from '@/data/store'
 import { Editor } from '@/editor/LazyEditor'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
@@ -21,8 +21,9 @@ import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { PriorityIcon, StatusIcon } from './icons'
-import { IssueRow } from './IssueList'
+import { Comments } from './Comments'
 import { shortDate } from './format'
+import { SubIssues } from './SubIssues'
 import { TitleField } from './TitleField'
 import { priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
 
@@ -48,8 +49,11 @@ export function IssuePage() {
   const labels = useData((s) => s.labels)
   const project = useData((s) => (issue?.project ? s.projects[issue.project] : undefined))
   const parent = useData((s) => (issue?.parent ? s.issues[issue.parent] : undefined))
-  const children = useData(useShallow((s) => (issue ? Object.values(s.issues).filter((i) => i.parent === issue.id) : []))).sort((a, b) => (a.sortOrder < b.sortOrder ? -1 : 1))
-  const comments = useData((s) => (issue ? s.comments[issue.id] : undefined))
+  // opening an issue reads its notes in your inbox
+  const unread = useData(useShallow((s) => (issue ? s.inbox.filter((n) => n.issue === issue.id && isUnread(n, s.readState)).map((n) => n.id) : [])))
+  useEffect(() => {
+    if (unread.length) markRead(unread)
+  }, [unread])
   const peopleItems = usePeopleItems()
   const labelItems = useLabelItems()
   const projectItems = useProjectItems(issue?.team)
@@ -93,38 +97,8 @@ export function IssuePage() {
           </div>
           <Editor key={issue.id} value={issue.description} onChange={(description) => updateIssue(issue.id, { description })} className="mt-4" />
 
-          {children.length > 0 && (
-            <section className="mt-10">
-              <h2 className="mb-2 text-sm font-medium text-muted-foreground">Sub-issues</h2>
-              <div className="rounded-lg border py-1">
-                {children.map((c) => (
-                  <IssueRow key={c.id} issue={c} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section className="mt-10">
-            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Comments</h2>
-            {comments?.length ? (
-              <ol className="flex flex-col gap-4">
-                {comments.map((c) => (
-                  <li key={c.id} className="rounded-lg border p-4">
-                    <div className="mb-2 flex items-center gap-2 text-sm">
-                      <PersonAvatar person={people[c.author]} login={c.author} />
-                      <span className="font-medium">{people[c.author]?.name ?? c.author}</span>
-                      <span className="text-muted-foreground">{shortDate(c.createdAt)}</span>
-                    </div>
-                    <div className="prose-sprawniej [&>p:first-child]:mt-0 [&>p:last-child]:mb-0">
-                      <Markdown>{c.body}</Markdown>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="text-sm text-muted-foreground">No comments yet.</p>
-            )}
-          </section>
+          <SubIssues issue={issue} />
+          <Comments issue={issue.id} />
         </div>
       </article>
 
