@@ -7,18 +7,8 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
+import { ISSUE_REF as ISSUE, MENTION } from '@/data/mentions'
 import { findByRef, useData } from '@/data/store'
-
-const MENTION = /(^|[^\w@/.])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/g
-const ISSUE = /\b([A-Z][A-Z0-9]{0,6}-\d+)\b/g
-
-/** the people (logins) a piece of Markdown mentions; used for notifications */
-export function mentionedLogins(markdown: string): string[] {
-  const people = useData.getState().people
-  const out = new Set<string>()
-  for (const m of markdown.matchAll(MENTION)) if (people[m[2]]) out.add(m[2])
-  return [...out]
-}
 
 function decorate(doc: PMNode): DecorationSet {
   const { people, issues } = useData.getState()

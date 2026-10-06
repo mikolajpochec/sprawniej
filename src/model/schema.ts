@@ -172,7 +172,10 @@ export const inboxItemSchema = z
     issue: z.string(),
     actor: login,
     at: iso,
+    /** the comment it's about (mentioned in a comment, commented) */
     comment: z.string().optional(),
+    /** the new status (status) */
+    status: z.enum(STATUS_IDS).optional(),
   })
   .passthrough()
 export type InboxItem = z.infer<typeof inboxItemSchema>

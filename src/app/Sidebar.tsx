@@ -5,6 +5,7 @@ import { SquarePen, ChevronDown, ChevronsUpDown, CircleHelp, CircleUser, Inbox, 
 import { useShallow } from 'zustand/react/shallow'
 import { Logo } from '@/components/Logo'
 import { PersonAvatar } from '@/components/Avatar'
+import { isUnread } from '@/data/select'
 import { useData } from '@/data/store'
 import { TeamsDialog } from '@/features/teams/TeamsDialog'
 import { openComposer } from '@/features/issues/composer'
@@ -124,7 +125,7 @@ function Me() {
 export function Sidebar() {
   const [teamsOpen, setTeamsOpen] = useState(false)
   const myTeams = useData(useShallow((s) => Object.values(s.teams).filter((t) => !s.me || t.members.includes(s.me.login)).map((t) => t.key)))
-  const unread = useData((s) => s.inbox.filter((n) => !s.readState.read.includes(n.id) && (!s.readState.readUntil || n.at > s.readState.readUntil)).length)
+  const unread = useData((s) => s.inbox.filter((n) => isUnread(n, s.readState)).length)
   return (
     <aside className="flex h-full w-[17.5rem] shrink-0 flex-col border-r bg-sidebar">
       <div className="flex h-16 items-center gap-3 pr-3 pl-5">

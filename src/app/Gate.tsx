@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'wouter'
 import { Loader2 } from 'lucide-react'
 import { GitHubError, isOffline, listPeople, repoKey } from '@/github/api'
-import { introduceMe } from '@/data/actions'
+import { introduceMe, tidyInbox } from '@/data/actions'
 import { setCollaborators } from '@/data/project'
 import { useData } from '@/data/store'
 import { JoinWizard } from '@/features/onboarding/JoinWizard'
@@ -62,9 +62,11 @@ function Loader({ children }: { children: ReactNode }) {
     }
   }, [repo, token, user])
 
-  // keep your people/ file in step with your GitHub profile
+  // keep your people/ file in step with your GitHub profile, and old inbox notes from piling up
   useEffect(() => {
-    if (load.state === 'ready' && hasWorkspaceFile && user) introduceMe(user)
+    if (load.state !== 'ready' || !hasWorkspaceFile || !user) return
+    introduceMe(user)
+    tidyInbox()
   }, [load.state, hasWorkspaceFile, user])
 
   if (load.state === 'loading') {

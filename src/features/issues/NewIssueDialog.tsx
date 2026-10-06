@@ -57,9 +57,10 @@ function Composer() {
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
   const team = teams.find((t) => t.key === draft.team)
 
-  function submit() {
+  /** `description`: the editor's text at ⌘Enter, which may be newer than the draft */
+  function submit(description?: string) {
     if (!draft.title.trim() || !team) return
-    const issue = createIssue(draft)
+    const issue = createIssue(description === undefined ? draft : { ...draft, description })
     toast(`Created ${issueRef(issue)}`, { description: issue.title, action: { label: 'Open', onClick: () => navigate(`/issue/${issueRef(issue)}`) } })
     if (more) {
       setDraft((d) => ({ ...d, title: '', description: '' }))
@@ -174,7 +175,7 @@ function Composer() {
           Create more
         </label>
         <span className="ml-auto text-xs text-muted-foreground">⌘ Enter</span>
-        <Button onClick={submit} disabled={!draft.title.trim() || !team}>
+        <Button onClick={() => submit()} disabled={!draft.title.trim() || !team}>
           Create issue
         </Button>
       </div>

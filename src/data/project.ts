@@ -174,3 +174,8 @@ export function pathOf(match: (p: Parsed) => boolean): string | undefined {
   for (const [path, p] of index) if (match(p)) return path
   return undefined
 }
+
+/** every file we know of, parsed (including other people's inbox items, which the store leaves out) */
+export function* parsedFiles(): Generator<[path: string, parsed: Parsed]> {
+  yield* index
+}

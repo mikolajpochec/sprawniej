@@ -2,7 +2,7 @@
  * Pure helpers that turn the store into what a list or board shows: filter, sort, group. No React, no store
  * access, so they are easy to test (tests/select.test.ts).
  */
-import type { Display, Filters, Issue, Ordering, Person, Project } from '@/model/schema'
+import type { Display, Filters, InboxItem, Issue, Ordering, Person, Project, ReadState } from '@/model/schema'
 import { PRIORITY_NAMES, PRIORITY_ORDER, STATUSES, TAB_GROUPS, statusOf, type IssueTab, type Priority } from '@/model/status'
 
 export function matches(issue: Issue, f: Filters): boolean {
@@ -152,3 +152,6 @@ export function projectProgress(projectId: string, issues: Issue[]): { done: num
   const mine = issues.filter((i) => i.project === projectId && statusOf(i.status).group !== 'canceled')
   return { done: mine.filter((i) => statusOf(i.status).group === 'completed').length, total: mine.length }
 }
+
+/** not marked as read yet (state/<login>.json) */
+export const isUnread = (n: Pick<InboxItem, 'id' | 'at'>, r: ReadState) => !r.read.includes(n.id) && (!r.readUntil || n.at > r.readUntil)

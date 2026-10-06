@@ -146,7 +146,13 @@ Written by the person who caused it, so it never clashes with anything.
 { "id": "01J9…", "type": "assigned", "issue": "01J9ZQ…", "actor": "ania-k", "at": "…" }
 ```
 
-`type`: `assigned`, `mentioned`, `commented`, `status`. `comment` holds the comment id for `mentioned` and `commented`.
+`type`: `assigned`, `mentioned`, `commented`, `status`. `comment` holds the comment id for `mentioned` (when the
+mention is in a comment) and `commented`. `status` holds the new status for `status` (sent when an issue is done or
+canceled).
+
+Notes don't stay forever: when someone opens the workspace, their read notes older than 30 days and unread ones
+older than 90 days are deleted, and so is anyone's note older than 180 days. Deleting an issue or a comment also
+deletes the notes about it.
 
 ## state/<login>.json
 
