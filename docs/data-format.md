@@ -28,6 +28,9 @@ titles or numbers, so renaming an issue never moves its file.
 
 Fields we don't know are kept as they are when the app rewrites a file. Newer versions can add fields safely.
 
+Teams, issues, comments, labels and projects that came from Linear carry a `linearId` (their id in Linear), so a
+second import updates them instead of making copies (docs/linear-import.md).
+
 ## sprawniej.json
 
 ```json

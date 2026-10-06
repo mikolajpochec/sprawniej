@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Copy, ExternalLink, Loader2, LogOut, Repeat, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
+import { Link } from 'wouter'
 import { useShallow } from 'zustand/react/shallow'
 import { useCrumbs } from '@/app/chrome'
 import { signOutEverywhere } from '@/app/signOut'
@@ -243,6 +244,11 @@ export function SettingsPage() {
         </Section>
         <Section title="Labels" description="Labels sort issues across teams. Renaming or recolouring one changes it on every issue.">
           <LabelsSettings />
+        </Section>
+        <Section title="Import" description="Bring teams, issues, comments, projects and labels over from Linear. You can run it again later to bring in new changes.">
+          <Button asChild variant="outline">
+            <Link href="/settings/import">Import from Linear</Link>
+          </Button>
         </Section>
         <Section title="Your account">
           <Account />
