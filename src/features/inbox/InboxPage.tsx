@@ -1,5 +1,5 @@
 /**
- * Things that happened to you: assigned, mentioned, a comment on your issue, your issue done. Opening a note (or
+ * Things that happened to you: assigned, mentioned, a comment or a status change on an issue you follow. Opening a note (or
  * its issue) marks it read. Old notes tidy themselves away (actions.tidyInbox).
  */
 import { useLocation } from 'wouter'

@@ -14,7 +14,7 @@ import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { BINARY_PREFIX } from '@/github/api'
 import { workspace } from '@/sync/engine'
 import { commentToFile as commentFile, issueToFile, jsonToFile, paths } from './files'
-import { commentNotes, issueNotes, type Note } from './notify'
+import { commentNotes, followLists, followers, issueNotes, type Note } from './notify'
 import { changedOnly, keyBetween, keysBetween } from './ordering'
 import { applyFiles, parsedFiles, pathOf } from './project'
 import { isUnread } from './select'
@@ -34,12 +34,16 @@ const one = (path: string, text: string | null) => new Map([[path, text]])
 
 const SAME_NOTE_WITHIN = 10 * 60_000
 
-/** the same note from me about the same issue, a few minutes ago (typing "@ania", deleting it, typing it again) */
-function toldRecently(to: string, issue: string, type: InboxItem['type'], me: string): boolean {
-  if (type === 'commented') return false
+/**
+ * the same note from me about the same issue, a few minutes ago (typing "@ania", deleting it, typing it again;
+ * dragging an issue back and forth between two statuses)
+ */
+function toldRecently(to: string, issue: string, n: Note, me: string): boolean {
+  if (n.type === 'commented') return false
   const since = new Date(Date.now() - SAME_NOTE_WITHIN).toISOString()
   for (const [, p] of parsedFiles()) {
-    if (p.kind === 'inbox' && p.login === to && p.value.actor === me && p.value.issue === issue && p.value.type === type && !p.value.comment && p.value.at > since) return true
+    const v = p.kind === 'inbox' && p.login === to ? p.value : null
+    if (v && v.actor === me && v.issue === issue && v.type === n.type && v.status === n.status && !v.comment && v.at > since) return true
   }
   return false
 }
@@ -49,7 +53,7 @@ function addNotes(files: Map<string, string | null>, issue: string, notes: Note[
   const me = useData.getState().me?.login
   if (!me) return
   for (const n of notes) {
-    if (!n.comment && toldRecently(n.to, issue, n.type, me)) continue
+    if (!n.comment && toldRecently(n.to, issue, n, me)) continue
     const item: InboxItem = { id: ulid(), type: n.type, issue, actor: me, at: now() }
     if (n.comment) item.comment = n.comment
     if (n.status) item.status = n.status
@@ -99,8 +103,40 @@ export function updateIssue(id: string, patch: IssuePatch): void {
   }
   const files = one(paths.issue(next), issueToFile(next))
   const s = useData.getState()
-  if (s.me) addNotes(files, id, issueNotes(old, next, s.me.login, s.people))
+  if (s.me) addNotes(files, id, issueNotes(old, next, s.me.login, s.people, s.comments[id] ?? []))
   save(files, describe(old, patch))
+}
+
+/** Make exactly these people follow an issue (hear about its comments and status changes). */
+export function setFollowers(id: string, logins: string[]) {
+  const s = useData.getState()
+  const old = s.issues[id]
+  if (!old) return
+  const lists = followLists(old, s.comments[id] ?? [], s.people, logins)
+  const next: Issue = { ...old }
+  // empty lists are left out, so the file stays short
+  for (const k of ['subscribers', 'unsubscribed'] as const) {
+    if (lists[k]?.length) next[k] = lists[k]
+    else delete next[k]
+  }
+  if (JSON.stringify([old.subscribers ?? [], old.unsubscribed ?? []]) === JSON.stringify([next.subscribers ?? [], next.unsubscribed ?? []])) return
+  // following isn't an edit: "last changed" stays as it was
+  const me = s.me?.login
+  const was = new Set(followers(old, s.comments[id] ?? [], s.people))
+  const wanted = new Set(logins)
+  const changed = [...new Set([...was, ...wanted])].filter((l) => was.has(l) !== wanted.has(l))
+  const what = changed.length === 1 && changed[0] === me ? (wanted.has(me) ? 'subscribe' : 'unsubscribe') : 'subscribers'
+  save(one(paths.issue(next), issueToFile(next)), `${issueRef(old)}: ${what}`)
+}
+
+/** Follow an issue, or stop following it. */
+export function subscribe(id: string, on: boolean) {
+  const s = useData.getState()
+  const issue = s.issues[id]
+  const me = s.me?.login
+  if (!issue || !me) return
+  const now = followers(issue, s.comments[id] ?? [], s.people)
+  setFollowers(id, on ? [...now, me] : now.filter((l) => l !== me))
 }
 
 /**

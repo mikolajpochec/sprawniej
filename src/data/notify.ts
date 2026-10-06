@@ -2,13 +2,40 @@
  * Who hears about a change (their Inbox). Pure rules, so they're unit-tested (tests/notify.test.ts):
  * - assigned: the new assignee
  * - mentioned: anyone newly @mentioned in a description or comment
- * - commented: the issue's creator, its assignee and earlier commenters
- * - status: the creator and the assignee, when the issue is done or canceled
- * Nobody hears about their own changes, and only people in the workspace get notes.
+ * - commented: everyone following the issue
+ * - status: everyone following the issue, when its status changes
+ * People follow an issue they created, are assigned to, commented on or were mentioned in, and any issue they
+ * subscribed to; unsubscribing stops all of that. Nobody hears about their own changes, and only people in the
+ * workspace get notes.
  */
 import type { Comment, InboxItem, Issue, Person } from '@/model/schema'
-import { statusOf, type StatusId } from '@/model/status'
+import type { StatusId } from '@/model/status'
 import { mentionedLogins, newMentions } from './mentions'
+
+/** people who follow an issue without asking: its creator, assignee, commenters and everyone mentioned in it */
+export function implicitFollowers(issue: Issue, comments: Comment[], people: Record<string, Person>): string[] {
+  const out = [issue.createdBy, issue.assignee, ...comments.map((c) => c.author), ...mentionedLogins(issue.description, people)]
+  for (const c of comments) out.push(...mentionedLogins(c.body, people))
+  return [...new Set(out.filter((l): l is string => !!l && !!people[l]))]
+}
+
+/** everyone who hears about an issue's comments and status changes */
+export function followers(issue: Issue, comments: Comment[], people: Record<string, Person>): string[] {
+  const off = new Set(issue.unsubscribed ?? [])
+  return [...new Set([...implicitFollowers(issue, comments, people), ...(issue.subscribers ?? [])])].filter((l) => !off.has(l) && !!people[l])
+}
+
+/** the subscribed and unsubscribed lists that make exactly `wanted` follow the issue */
+export function followLists(issue: Issue, comments: Comment[], people: Record<string, Person>, wanted: string[]): Pick<Issue, 'subscribers' | 'unsubscribed'> {
+  const implicit = implicitFollowers(issue, comments, people)
+  const want = new Set(wanted)
+  // people who left the workspace keep whatever they had
+  const gone = (l: string) => !people[l]
+  return {
+    subscribers: [...new Set([...wanted.filter((l) => !implicit.includes(l)), ...(issue.subscribers ?? []).filter(gone)])].sort(),
+    unsubscribed: [...new Set([...implicit.filter((l) => !want.has(l)), ...(issue.unsubscribed ?? []).filter(gone)])].sort(),
+  }
+}
 
 export interface Note {
   to: string
@@ -27,15 +54,17 @@ function keep(notes: Note[], actor: string, people: Record<string, Person>): Not
   })
 }
 
-/** notes for a new issue (`before` = null) or a change to one */
-export function issueNotes(before: Issue | null, after: Issue, actor: string, people: Record<string, Person>): Note[] {
+/** notes for a new issue (`before` = null) or a change to one; `comments` = the comments on it */
+export function issueNotes(before: Issue | null, after: Issue, actor: string, people: Record<string, Person>, comments: Comment[] = []): Note[] {
   const notes: Note[] = []
   if (after.assignee && after.assignee !== before?.assignee) notes.push({ to: after.assignee, type: 'assigned' })
   if (after.description !== before?.description) {
     for (const to of newMentions(before?.description ?? '', after.description, people)) notes.push({ to, type: 'mentioned' })
   }
-  if (before && before.status !== after.status && ['completed', 'canceled'].includes(statusOf(after.status).group)) {
-    for (const to of [after.createdBy, after.assignee]) if (to) notes.push({ to, type: 'status', status: after.status })
+  if (before && before.status !== after.status) {
+    // a new assignee already hears about it being theirs
+    const told = new Set(notes.filter((n) => n.type === 'assigned').map((n) => n.to))
+    for (const to of followers(after, comments, people)) if (!told.has(to)) notes.push({ to, type: 'status', status: after.status })
   }
   return keep(notes, actor, people)
 }
@@ -49,9 +78,7 @@ export function commentNotes(issue: Issue, comment: Comment, before: string | nu
   const notes: Note[] = mentioned.map((to) => ({ to, type: 'mentioned', comment: comment.id }))
   if (before === null) {
     const told = new Set(mentioned)
-    for (const to of [issue.createdBy, issue.assignee, ...earlier.map((c) => c.author)]) {
-      if (to && !told.has(to)) notes.push({ to, type: 'commented', comment: comment.id })
-    }
+    for (const to of followers(issue, earlier, people)) if (!told.has(to)) notes.push({ to, type: 'commented', comment: comment.id })
   }
   return keep(notes, actor, people)
 }

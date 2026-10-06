@@ -2,17 +2,18 @@
  * One issue: title, description, sub-issues and comments on the left, properties on the right.
  * Everything saves by itself; there is no Save button anywhere (CLAUDE.md, golden rules).
  */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'wouter'
 import { useShallow } from 'zustand/react/shallow'
-import { Link2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Bell, BellOff, Link2, MoreHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCrumbs } from '@/app/chrome'
 import { NotFound } from '@/app/NotFound'
 import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
-import { Picker } from '@/components/Picker'
-import { createLabel, deleteIssue, markRead, moveIssueToTeam, updateIssue } from '@/data/actions'
+import { Picker, type PickerItem } from '@/components/Picker'
+import { createLabel, deleteIssue, markRead, moveIssueToTeam, setFollowers, subscribe, updateIssue } from '@/data/actions'
+import { followers } from '@/data/notify'
 import { isClosed, isUnread } from '@/data/select'
 import { findByRef, issueRef, useData } from '@/data/store'
 import { Editor } from '@/editor/LazyEditor'
@@ -21,6 +22,7 @@ import { cn } from '@/lib/utils'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { PriorityIcon, StatusIcon } from './icons'
 import { Comments } from './Comments'
@@ -58,6 +60,11 @@ export function IssuePage() {
     if (unread.length) markRead(unread)
   }, [unread])
   const peopleItems = usePeopleItems()
+  const followerItems = useMemo(() => peopleItems.filter((p) => p.value !== null) as PickerItem<string>[], [peopleItems])
+  const comments = useData((s) => (issue ? s.comments[issue.id] : undefined))
+  const me = useData((s) => s.me?.login)
+  const followerList = useMemo(() => (issue ? followers(issue, comments ?? [], people) : []), [issue, comments, people])
+  const following = !!me && followerList.includes(me)
   const labelItems = useLabelItems()
   const projectItems = useProjectItems(issue?.team)
   const parentItems = useParentItems(issue)
@@ -162,6 +169,24 @@ export function IssuePage() {
           </button>
         </Picker>
       </Property>
+      <Property label="Subscribers">
+        <Picker multiple placeholder="Who hears about it…" items={followerItems} value={followerList} onSelect={(logins) => setFollowers(issue.id, logins)}>
+          <button type="button" className={pick}>
+            {followerList.length ? (
+              <>
+                <span className="flex -space-x-1.5">
+                  {followerList.slice(0, 5).map((l) => (
+                    <PersonAvatar key={l} person={people[l]} login={l} className="ring-2 ring-background" />
+                  ))}
+                </span>
+                <span className="text-muted-foreground tabular-nums">{followerList.length}</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No one</span>
+            )}
+          </button>
+        </Picker>
+      </Property>
       {teams.length > 1 && (
         <Property label="Team">
           <Picker
@@ -199,6 +224,14 @@ export function IssuePage() {
           )}
           <div className="flex items-start gap-2">
             <TitleField key={issue.id} id={issue.id} value={issue.title} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label={following ? 'Unsubscribe' : 'Subscribe'} aria-pressed={following} onClick={() => subscribe(issue.id, !following)}>
+                  {following ? <Bell /> : <BellOff className="text-muted-foreground" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{following ? 'You hear about comments and status changes. Click to stop.' : 'Hear about comments and status changes'}</TooltipContent>
+            </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon-sm" aria-label="More actions">

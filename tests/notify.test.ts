@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createComment, createIssue, deleteComment, deleteInboxItems, markAllRead, markRead, tidyInbox, updateComment, updateIssue, INBOX_KEEP } from '@/data/actions'
+import { createComment, createIssue, deleteComment, setFollowers, subscribe, deleteInboxItems, markAllRead, markRead, tidyInbox, updateComment, updateIssue, INBOX_KEEP } from '@/data/actions'
 import { linkReferences, mentionedLogins, newMentions } from '@/data/mentions'
-import { issueNotes } from '@/data/notify'
+import { followLists, followers, issueNotes } from '@/data/notify'
 import { applyFiles, parsedFiles, resetProjection } from '@/data/project'
 import { jsonToFile, paths } from '@/data/files'
 import { isUnread } from '@/data/select'
@@ -38,9 +38,24 @@ describe('notes', () => {
     expect(issueNotes(base, { ...base, assignee: 'cy' }, 'ana', people)).toEqual([{ to: 'cy', type: 'assigned' }])
     expect(issueNotes(base, { ...base, assignee: 'ana' }, 'ana', people)).toEqual([])
   })
-  test('done tells the creator and the assignee once', () => {
+  test('a status change tells the followers once, never the person who made it', () => {
     expect(issueNotes({ ...base, assignee: 'bob' }, { ...base, assignee: 'bob', status: 'done' }, 'ana', people)).toEqual([{ to: 'bob', type: 'status', status: 'done' }])
-    expect(issueNotes(base, { ...base, status: 'in_progress' }, 'ana', people)).toEqual([])
+    expect(issueNotes(base, { ...base, status: 'in_progress' }, 'ana', people)).toEqual([{ to: 'bob', type: 'status', status: 'in_progress' }])
+    expect(issueNotes(base, { ...base, status: 'in_progress' }, 'bob', people)).toEqual([])
+  })
+  test('followers: creator, assignee, commenters and mentioned people, plus subscribers, minus unsubscribed', () => {
+    const c = { id: 'c1', issue: 'i1', author: 'cy', createdAt: '', body: 'ask @ana' }
+    expect(followers(base, [c], people).sort()).toEqual(['ana', 'bob', 'cy'])
+    expect(followers({ ...base, unsubscribed: ['bob'], subscribers: ['nobody'] }, [], people)).toEqual([])
+    expect(followers({ ...base, subscribers: ['cy'] }, [], people).sort()).toEqual(['bob', 'cy'])
+  })
+  test('followLists keeps the lists short', () => {
+    expect(followLists(base, [], people, ['bob'])).toEqual({ subscribers: [], unsubscribed: [] })
+    expect(followLists(base, [], people, ['cy'])).toEqual({ subscribers: ['cy'], unsubscribed: ['bob'] })
+  })
+  test('moving to a new assignee tells them once (assigned), not twice', () => {
+    const notes = issueNotes(base, { ...base, assignee: 'cy', status: 'in_progress' }, 'ana', people)
+    expect(notes).toEqual([{ to: 'cy', type: 'assigned' }, { to: 'bob', type: 'status', status: 'in_progress' }])
   })
 })
 
@@ -55,6 +70,30 @@ describe('inbox', () => {
     expect(notesFor('cy').map((n) => n.type)).toEqual(['commented'])
     expect(notesFor('bob').map((n) => n.type).sort()).toEqual(['assigned', 'commented', 'mentioned'])
     expect(notesFor('ana').map((n) => n.type)).toEqual(['commented']) // cy's comment on ana's issue
+  })
+
+  test('unsubscribing stops comment and status notes; subscribing starts them', () => {
+    const i = createIssue({ team: 'ENG', title: 'Bug', assignee: 'bob' })
+    useData.setState({ me: people.bob })
+    subscribe(i.id, false)
+    expect(useData.getState().issues[i.id].unsubscribed).toEqual(['bob'])
+    useData.setState({ me: people.cy })
+    subscribe(i.id, true)
+    useData.setState({ me: people.ana })
+    createComment(i.id, 'Any news?')
+    updateIssue(i.id, { status: 'in_progress' })
+    expect(notesFor('bob').map((n) => n.type)).toEqual(['assigned'])
+    expect(notesFor('cy').map((n) => n.type).sort()).toEqual(['commented', 'status'])
+    // the same status again within minutes: one note
+    updateIssue(i.id, { status: 'todo' })
+    updateIssue(i.id, { status: 'in_progress' })
+    expect(notesFor('cy').filter((n) => n.type === 'status').map((n) => n.status)).toEqual(['in_progress', 'todo'])
+    const before = useData.getState().issues[i.id].updatedAt
+    setFollowers(i.id, ['ana'])
+    const after = useData.getState().issues[i.id]
+    expect(after.updatedAt).toBe(before)
+    expect(after.unsubscribed).toEqual(['bob'])
+    expect(after.subscribers).toBeUndefined()
   })
 
   test('typing the same mention again in a few minutes tells them once', () => {

@@ -82,6 +82,10 @@ export const issueFieldsSchema = z
     updatedAt: iso,
     completedAt: iso.nullable().optional(),
     duplicateOf: z.string().nullable().optional(),
+    /** people who asked to follow it, on top of those who follow it anyway (see notify.ts, followers) */
+    subscribers: z.array(login).optional(),
+    /** people who asked not to follow it */
+    unsubscribed: z.array(login).optional(),
   })
   .passthrough()
 export type IssueFields = z.infer<typeof issueFieldsSchema>
