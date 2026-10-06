@@ -3,6 +3,14 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.0.0: Sprawniej 1.0
+*2026-10-07*
+
+- Issue numbers are never given out twice, so an old link always opens the same issue
+- Big workspaces open faster
+- When you and a teammate rewrite the same words, the last save simply wins, with no notes to read
+- Clearer messages when something goes wrong, and a button on every empty page
+
 ## 0.9.0: Phones, several issues at once, and a welcome tour
 *2026-10-07*
 

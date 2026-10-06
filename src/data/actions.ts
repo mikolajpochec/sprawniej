@@ -143,6 +143,24 @@ export interface NewIssue {
   parent?: string | null
 }
 
+/** a team's next issue number: one more than any issue it has, or ever had (deleted numbers aren't reused) */
+export function nextNumber(team: string): number {
+  const s = useData.getState()
+  const highest = Object.values(s.issues).reduce((max, i) => (i.team === team ? Math.max(max, i.number) : max), s.teams[team]?.lastNumber ?? 0)
+  return highest + 1
+}
+
+/** an issue leaves its team (deleted or moved): the team remembers its number so nobody gets it again */
+function rememberNumber(files: Map<string, string | null>, issue: Issue) {
+  const team = useData.getState().teams[issue.team]
+  if (team && (team.lastNumber ?? 0) < issue.number) {
+    const path = paths.team(team.key)
+    const current = files.get(path)
+    const latest = current ? (JSON.parse(current) as Team) : team
+    if ((latest.lastNumber ?? 0) < issue.number) files.set(path, jsonToFile({ ...latest, lastNumber: issue.number }))
+  }
+}
+
 /** where a new sub-issue goes: after its last sibling, or right after its parent */
 function subIssueOrder(issues: Issue[], parent: Issue): string {
   const anchor = issues.filter((i) => i.parent === parent.id).reduce((max, i) => (i.sortOrder > max ? i.sortOrder : max), parent.sortOrder)
@@ -154,7 +172,7 @@ function subIssueOrder(issues: Issue[], parent: Issue): string {
 export function createIssue(input: NewIssue): Issue {
   const s = useData.getState()
   const inTeam = Object.values(s.issues).filter((i) => i.team === input.team)
-  const number = inTeam.reduce((max, i) => Math.max(max, i.number), 0) + 1
+  const number = nextNumber(input.team)
   const first = inTeam.reduce<string | null>((min, i) => (min === null || i.sortOrder < min ? i.sortOrder : min), null)
   const parent = input.parent ? s.issues[input.parent] : undefined
   const issue: Issue = {
@@ -192,6 +210,7 @@ export function deleteIssue(id: string) {
     files.set(paths.issue(child), issueToFile({ ...child, parent: null, updatedAt: now() }))
   }
   dropNotes(files, (n) => n.issue === id)
+  rememberNumber(files, issue)
   save(files, `Delete ${issueRef(issue)}: ${issue.title}`)
 }
 
@@ -200,7 +219,7 @@ export function moveIssueToTeam(id: string, team: string): Issue | undefined {
   const s = useData.getState()
   const old = s.issues[id]
   if (!old || old.team === team || !s.teams[team]) return old
-  const number = Object.values(s.issues).filter((i) => i.team === team).reduce((max, i) => Math.max(max, i.number), 0) + 1
+  const number = nextNumber(team)
   const next: Issue = { ...old, team, number, updatedAt: now() }
   const files = new Map<string, string | null>([
     [pathOf((p) => p.kind === 'issue' && p.value.id === id) ?? paths.issue(old), null],
@@ -210,6 +229,7 @@ export function moveIssueToTeam(id: string, team: string): Issue | undefined {
     files.set(paths.comment(old.team, c), null)
     files.set(paths.comment(team, c), commentFile(c))
   }
+  rememberNumber(files, old)
   save(files, `Move ${issueRef(old)} to ${s.teams[team].name} as ${issueRef(next)}`)
   return next
 }

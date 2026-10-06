@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Clock, Lock, Mail, Plus, Search } from 'lucide-react'
-import { acceptInvitation, listMyInvitations, listMyRepos, repoKey, type MyInvitation, type RepoInfo, type RepoRef } from '@/github/api'
+import { acceptInvitation, listMyInvitations, listMyRepos, plainError, repoKey, type MyInvitation, type RepoInfo, type RepoRef } from '@/github/api'
 import { Logo } from '@/components/Logo'
 import { useSession } from '@/session'
 import { Button } from '@/ui/button'
@@ -34,7 +34,7 @@ export function PickWorkspace() {
   const [problem, setProblem] = useState<string>()
 
   useEffect(() => {
-    listMyRepos(token).then(setRepos, (e: Error) => setProblem(e.message))
+    listMyRepos(token).then(setRepos, (e: unknown) => setProblem(plainError(e)))
     // only invitations to workspaces: accepting anything else here would be a surprise
     listMyInvitations(token).then((all) => setInvites(all.filter((i) => isWorkspaceRepo(i.repository.name))), () => {})
   }, [token])
@@ -53,7 +53,7 @@ export function PickWorkspace() {
       await acceptInvitation(token, ref)
       open(ref)
     } catch (e) {
-      setProblem((e as Error).message)
+      setProblem(plainError(e))
     }
   }
 

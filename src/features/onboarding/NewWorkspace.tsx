@@ -1,7 +1,7 @@
 /** Create a workspace: a new private repository under you or one of your organizations. */
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { createRepo, GitHubError, listMyOrgs, type Org } from '@/github/api'
+import { createRepo, GitHubError, listMyOrgs, plainError, type Org } from '@/github/api'
 import { useSession } from '@/session'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
@@ -34,13 +34,12 @@ export function NewWorkspace({ onBack }: { onBack: () => void }) {
       rememberWorkspaceName(name.trim())
       open({ owner, repo: repoName })
     } catch (e) {
-      const msg = (e as Error).message
       setProblem(
         e instanceof GitHubError && e.status === 422
           ? `There's already a repository called ${owner}/${repoName}. Pick another name below.`
           : e instanceof GitHubError && e.status === 403
             ? `You can't create repositories in ${owner}. Ask an admin there, or choose yourself as the owner.`
-            : msg,
+            : plainError(e),
       )
       setSuffix(repoName.slice(WORKSPACE_PREFIX.length))
     } finally {

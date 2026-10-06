@@ -135,7 +135,7 @@ server does. The code is `src/sync/merge.ts` (`mergeIncoming`), and every row be
 | Change the same field of one issue | The later save wins | No |
 | Add or remove labels on one issue | Both sides' additions and removals apply | No |
 | Edit different parts of a description | Lines merge | No |
-| Rewrite the same lines of a description | The later save's lines win; the other version stays in GitHub history | Yes, a small one, because text disappeared |
+| Rewrite the same lines of a description | The later save's lines win; the other version stays in GitHub history | No |
 | Edit one view (filters, emoji, layout…) | Field by field; filter lists merge like labels | No |
 | Edit one project, team, label or the workspace name | Field by field; the same field: later save wins | No |
 | Join or leave the same team | Membership lists merge | No |

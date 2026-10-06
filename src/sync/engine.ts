@@ -30,7 +30,7 @@ import {
 } from '@/github/api'
 import { classify, WORKSPACE_FILE } from '@/data/files'
 import { applyFiles, resetProjection } from '@/data/project'
-import { EMPTY, issueRef, useData } from '@/data/store'
+import { EMPTY, useData } from '@/data/store'
 import type { Person } from '@/model/schema'
 import { LocalCopy, type Meta } from './local'
 import { mergeFile, mergeIncoming } from './merge'
@@ -511,20 +511,8 @@ export class Workspace {
     this.tabs.post({ t: 'files', files: [...shown] })
     await this.local.putBase(baseUpdate)
     await this.local.setMeta(this.meta)
-    if (merged.lostLines.length) this.tellAboutClashes(merged.lostLines)
-  }
-
-  private tellAboutClashes(paths: string[]) {
-    const issues = useData.getState().issues
-    const names = paths
-      .map((p) => {
-        const c = classify(p)
-        return c?.kind === 'issue' && issues[c.parts[1]] ? issueRef(issues[c.parts[1]]) : null
-      })
-      .filter(Boolean)
-    toast(names.length ? `${names.join(', ')}: a teammate edited the same lines` : 'A teammate edited the same lines', {
-      description: 'Your text is kept. Theirs is still in the workspace history on GitHub.',
-    })
+    // the same lines rewritten by both: ours is kept, theirs stays in the history. Nobody is asked to choose.
+    if (merged.lostLines.length) console.info('Sprawniej kept your text where a teammate rewrote the same lines:', merged.lostLines)
   }
 
   /** send pending changes as one commit; retry after a pull when someone saved first */

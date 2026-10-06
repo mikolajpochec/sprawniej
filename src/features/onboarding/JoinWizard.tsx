@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Redirect, useLocation } from 'wouter'
 import { ExternalLink, Loader2, RefreshCw } from 'lucide-react'
-import { acceptInvitation, getRepo, GitHubError, isOffline, SIGN_UP_URL } from '@/github/api'
+import { acceptInvitation, getRepo, GitHubError, plainError, SIGN_UP_URL } from '@/github/api'
 import { PersonAvatar } from '@/components/Avatar'
 import { useSession } from '@/session'
 import { Button } from '@/ui/button'
@@ -46,7 +46,7 @@ export function JoinWizard() {
         }
         if (!stop) setStage('done')
       } catch (e) {
-        if (!stop) setProblem(isOffline(e) ? 'You seem to be offline. Connect to the internet and try again.' : (e as Error).message)
+        if (!stop) setProblem(plainError(e))
       }
     })()
     return () => {

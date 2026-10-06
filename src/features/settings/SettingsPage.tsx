@@ -11,7 +11,7 @@ import { renameWorkspace } from '@/data/actions'
 import { useData } from '@/data/store'
 import { inviteMessage, joinLink } from '@/features/onboarding/joinLink'
 import { Problem } from '@/features/onboarding/Step'
-import { getRepo, GitHubError, invite, listSentInvitations, repoKey, type SentInvitation } from '@/github/api'
+import { getRepo, GitHubError, invite, listSentInvitations, plainError, repoKey, type SentInvitation } from '@/github/api'
 import { useSession } from '@/session'
 import { workspace } from '@/sync/engine'
 import { Button } from '@/ui/button'
@@ -98,7 +98,7 @@ function People() {
           ? `There's no GitHub account called @${who}. Check the spelling with them.`
           : e instanceof GitHubError && e.status === 403
             ? 'You can’t invite people to this workspace. Ask its owner to do it, or to make you an admin on GitHub.'
-            : (e as Error).message,
+            : plainError(e),
       )
     } finally {
       setBusy(false)

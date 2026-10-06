@@ -244,6 +244,7 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
   const highest = new Map<string, number>()
   const raise = (team: string, n: number) => highest.set(team, Math.max(highest.get(team) ?? 0, n))
   for (const [team, used] of taken) for (const n of used) raise(team, n)
+  for (const t of Object.values(ws.teams)) raise(t.key, t.lastNumber ?? 0)
   for (const li of issues) raise(issuesByLinear.get(li.id)?.team ?? keyOf(li.team), li.number)
   const plan: { li: LIssue; team: string; number: number }[] = []
   for (const li of [...issues].sort((a, b) => a.number - b.number)) {
