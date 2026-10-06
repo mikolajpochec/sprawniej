@@ -10,6 +10,7 @@ import { useData } from '@/data/store'
 import type { Display, Filters } from '@/model/schema'
 import type { IssueTab } from '@/model/status'
 import { IssueBoard } from './IssueBoard'
+import { DisplayOptions } from './DisplayOptions'
 import { IssueList } from './IssueList'
 import { openComposer } from './composer'
 import type { Group } from '@/data/select'
@@ -26,7 +27,7 @@ interface Props {
 }
 
 export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, empty }: Props) {
-  const [display, setDisplay] = useDisplay(page, baseDisplay)
+  const { display, setDisplay, resetDisplay } = useDisplay(page, baseDisplay)
   const all = useData(useShallow((s) => Object.values(s.issues)))
   const people = useData((s) => s.people)
   const projects = useData((s) => s.projects)
@@ -50,7 +51,8 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, empt
     <div className="flex min-h-0 flex-1 flex-col gap-5 px-8 pt-6">
       <div className="flex items-center gap-3">
         {left}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <DisplayOptions display={display} onChange={setDisplay} onReset={resetDisplay} tab={tab} />
           <Segmented
             label="Layout"
             value={display.layout}
@@ -70,11 +72,11 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, empt
         ))
       ) : display.layout === 'list' ? (
         <div className="min-h-0 flex-1 overflow-y-auto pb-8">
-          <IssueList groups={groups} onAdd={addTo} />
+          <IssueList groups={groups} display={display} onAdd={addTo} />
         </div>
       ) : (
         <div className="min-h-0 flex-1">
-          <IssueBoard groups={groups} onAdd={addTo} />
+          <IssueBoard groups={groups} display={display} onAdd={addTo} />
         </div>
       )}
     </div>

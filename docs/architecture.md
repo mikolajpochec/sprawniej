@@ -151,9 +151,18 @@ counts as later, just as their request would arrive later at a server.
 ## Ordering and drag-n-drop
 
 Each issue has a `sortOrder` string made with [fractional-indexing](https://github.com/rocicorp/fractional-indexing).
-Dropping an issue between two others gives it a key between theirs, so only the moved issue's file changes. List and
-board use the same order. Dropping into another column or group also changes that field (status, assignee, priority
-or project).
+Dropping an issue between two others gives it a key between theirs (`src/data/ordering.ts`), so only the moved
+issue's file changes, and two people reordering at once never clash. List and board use the same order. Dropping
+into another column or group also changes that field (status, assignee, priority or project), in the same change.
+
+Dragging is done with dnd-kit (`src/features/issues/useIssueDrag.ts`). While you drag, the order on screen is local
+state; nothing is written until you drop. In a list, sub-issues sit under their parent, so a dropped issue gets its
+key from the nearest issues at its own level (top-level issues among top-level ones, sub-issues among their
+siblings). Reordering only means something in Manual order; under another ordering a drop can still change the
+group, and otherwise we explain where to switch to Manual.
+
+How a page looks (grouping, ordering, what's hidden) is personal: it's kept in this browser per page
+(`src/data/displays.ts`), never in the workspace. Saved views will carry their own default in their file.
 
 ## Code layout
 

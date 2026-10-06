@@ -64,7 +64,9 @@ interface GroupCtx {
  * even empty ones, so there is somewhere to drop an issue.
  */
 export function groupIssues(issues: Issue[], display: Display, ctx: GroupCtx, tab: IssueTab = 'all'): Group[] {
-  const sorted = issues.filter((i) => display.showCompleted || !isClosed(i)).sort(compareIssues(display.ordering))
+  const sorted = issues
+    .filter((i) => (display.showCompleted || !isClosed(i)) && (display.showSubIssues || !i.parent))
+    .sort(compareIssues(display.ordering))
   switch (display.grouping) {
     case 'none':
       return [{ key: 'all', value: null, title: 'All issues', issues: sorted }]

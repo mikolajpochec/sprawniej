@@ -77,11 +77,21 @@ Big issues can be split into smaller **sub-issues**. The parent shows a counter 
 
 Every list of issues can be shown two ways. Switch with **List / Board** at the top right.
 
-- **List:** rows grouped by status.
+- **List:** rows grouped by status. Sub-issues sit just under their parent.
 - **Board:** a column per status, with cards.
 
-**Drag and drop** works in both: drag an issue up or down to change its order, or into another group or column to
-change its status.
+**Drag and drop** works in both. Drag an issue up or down to change its order, or into another group or column to
+change its status. Your teammates see the new order too. No mouse? Move to an issue with `Tab`, press `Space` to
+pick it up, use the arrow keys, and press `Space` again to drop it (`Esc` puts it back).
+
+**Display** (next to List / Board) changes how the page looks, just for you:
+
+- **Grouping:** by status, assignee, priority, project, or no groups at all. Dropping an issue into a group gives it
+  that group's assignee, priority or project.
+- **Ordering:** **Manual** is the order you and your teammates arrange by dragging. You can also sort by priority,
+  by last update, or newest first. Dragging to reorder only works in Manual order.
+- **Show finished issues** and **Show sub-issues** hide or show those.
+- **Back to default** undoes your changes.
 
 On your team's page, the tabs show:
 
