@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useLocation } from 'wouter'
 import { useShallow } from 'zustand/react/shallow'
 import { toast } from 'sonner'
-import { Box, CircleSlash, Tag } from 'lucide-react'
+import { Box, CalendarClock, CircleSlash, Tag } from 'lucide-react'
 import { PersonAvatar } from '@/components/Avatar'
 import { Picker } from '@/components/Picker'
 import { createIssue, createLabel, type NewIssue } from '@/data/actions'
@@ -17,6 +17,7 @@ import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog'
 import { useComposer } from './composer'
 import { PriorityIcon, StatusIcon } from './icons'
+import { DueDatePicker, EstimateIcon, dayName, estimateItems, estimateName } from './DueDate'
 import { priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
 
 const chip =
@@ -35,6 +36,8 @@ function fresh(d: Partial<NewIssue>, fallbackTeam: string): Draft {
     labels: d.labels ?? [],
     project: d.project ?? null,
     parent: d.parent ?? null,
+    dueDate: d.dueDate ?? null,
+    estimate: d.estimate ?? null,
   }
 }
 
@@ -166,6 +169,16 @@ function Composer() {
         <Picker placeholder="Sub-issue of…" items={parentItems} value={draft.parent} onSelect={(p) => set({ parent: p })}>
           <button type="button" className={chip}>
             <CircleSlash className="size-3.5" /> {parent ? `Sub-issue of ${issueRef(parent)}` : 'Parent'}
+          </button>
+        </Picker>
+        <DueDatePicker value={draft.dueDate} onChange={(dueDate) => set({ dueDate })}>
+          <button type="button" className={chip}>
+            <CalendarClock className="size-3.5" /> {draft.dueDate ? `Due ${dayName(draft.dueDate)}` : 'Due date'}
+          </button>
+        </DueDatePicker>
+        <Picker placeholder="Estimate…" items={estimateItems(draft.estimate)} value={draft.estimate} onSelect={(estimate) => set({ estimate })}>
+          <button type="button" className={chip}>
+            <EstimateIcon /> {draft.estimate != null ? estimateName(draft.estimate) : 'Estimate'}
           </button>
         </Picker>
       </div>

@@ -118,3 +118,12 @@ describe('sub-issues', () => {
     expect(p.done).toBe(1)
   })
 })
+
+describe('due dates', () => {
+  test('ordering by due date: soonest first, none last', () => {
+    const [a, b, c] = issues.slice(0, 3)
+    const list = [{ ...a, dueDate: null }, { ...b, dueDate: '2026-12-01' }, { ...c, dueDate: '2026-11-01' }]
+    const groups = groupIssues(list, { ...DEFAULT_DISPLAY, grouping: 'none', ordering: 'due' }, ctx)
+    expect(groups[0].issues.map((i) => i.id)).toEqual([c.id, b.id, a.id])
+  })
+})

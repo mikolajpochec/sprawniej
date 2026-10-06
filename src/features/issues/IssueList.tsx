@@ -13,6 +13,7 @@ import type { Display, Issue } from '@/model/schema'
 import { cn } from '@/lib/utils'
 import { PriorityIcon, StatusIcon } from './icons'
 import { GroupIcon } from './GroupIcon'
+import { DueChip, EstimateChip } from './DueDate'
 import { shortDate } from './format'
 import { SubIssueCount } from './SubIssueCount'
 import { TitleText } from './TitleText'
@@ -67,6 +68,8 @@ export function IssueRow({ issue, depth = 0, dragRef, dragProps, style, ghost, l
       <SubIssueCount id={issue.id} className="shrink-0" />
       <span className="ml-auto flex shrink-0 items-center gap-2">
         <span className="hidden items-center gap-2 md:flex">{issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)}</span>
+        {issue.estimate != null && <EstimateChip points={issue.estimate} className="hidden md:inline-flex" />}
+        {issue.dueDate && <DueChip day={issue.dueDate} closed={closed} />}
         <PersonAvatar person={assignee} login={issue.assignee} />
         <span className="hidden w-14 text-right text-sm text-muted-foreground sm:inline">{shortDate(issue.createdAt)}</span>
       </span>

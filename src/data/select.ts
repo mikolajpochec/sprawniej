@@ -31,6 +31,9 @@ export function compareIssues(ordering: Ordering): (a: Issue, b: Issue) => numbe
   switch (ordering) {
     case 'priority':
       return (a, b) => PRIORITY_RANK.get(a.priority)! - PRIORITY_RANK.get(b.priority)! || byOrder(a, b)
+    case 'due':
+      // soonest first; no due date last
+      return (a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') || byOrder(a, b)
     case 'updated':
       return (a, b) => b.updatedAt.localeCompare(a.updatedAt)
     case 'created':

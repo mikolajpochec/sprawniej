@@ -71,6 +71,10 @@ export const issueFieldsSchema = z
     labels: z.array(z.string()),
     project: z.string().nullable(),
     parent: z.string().nullable(),
+    /** a day, "2026-10-31" (no time: it's the same day for everyone) */
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    /** how big it is, in points (see ESTIMATES) */
+    estimate: z.number().nonnegative().nullable().optional(),
     /** fractional index (see fractional-indexing): a drag rewrites only the moved issue */
     sortOrder: z.string(),
     createdBy: login,
@@ -123,7 +127,7 @@ export type Project = z.infer<typeof projectSchema>
 
 export const GROUPINGS = ['status', 'assignee', 'priority', 'project', 'none'] as const
 export type Grouping = (typeof GROUPINGS)[number]
-export const ORDERINGS = ['manual', 'priority', 'updated', 'created'] as const
+export const ORDERINGS = ['manual', 'priority', 'due', 'updated', 'created'] as const
 export type Ordering = (typeof ORDERINGS)[number]
 
 export const filtersSchema = z

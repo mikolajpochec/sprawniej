@@ -278,6 +278,8 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
       labels: [...new Set(li.labels.nodes.map((l) => labelId.get(l.id)).filter((x): x is string => !!x))],
       project: li.project ? (projectId.get(li.project.id) ?? null) : null,
       parent: li.parent ? (idOf.get(li.parent.id) ?? null) : null,
+      ...(li.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(li.dueDate) ? { dueDate: li.dueDate } : old?.dueDate && { dueDate: null }),
+      ...(typeof li.estimate === 'number' && li.estimate >= 0 ? { estimate: li.estimate } : old?.estimate != null && { estimate: null }),
       sortOrder: order.get(li.id)!,
       createdBy: login(li.creator) ?? old?.createdBy ?? ws.me,
       createdAt: li.createdAt,

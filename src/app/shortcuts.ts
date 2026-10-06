@@ -12,7 +12,7 @@ export function isBusy(e: KeyboardEvent): boolean {
   return !!document.querySelector('[role=dialog], [role=menu], [role=listbox], [data-slot=popover-content]')
 }
 
-const QUICK: Record<string, QuickField> = { s: 'status', p: 'priority', a: 'assignee', l: 'labels' }
+const QUICK: Record<string, QuickField> = { s: 'status', p: 'priority', a: 'assignee', l: 'labels', e: 'estimate' }
 
 /** move keyboard focus to the next or previous issue in the list or board */
 function step(by: 1 | -1) {

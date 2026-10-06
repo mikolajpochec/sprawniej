@@ -13,7 +13,7 @@ import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
 import { Picker } from '@/components/Picker'
 import { createLabel, deleteIssue, markRead, moveIssueToTeam, updateIssue } from '@/data/actions'
-import { isUnread } from '@/data/select'
+import { isClosed, isUnread } from '@/data/select'
 import { findByRef, issueRef, useData } from '@/data/store'
 import { Editor } from '@/editor/LazyEditor'
 import { useMedia } from '@/lib/useNarrow'
@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { PriorityIcon, StatusIcon } from './icons'
 import { Comments } from './Comments'
+import { DueChip, DueDatePicker, EstimateIcon, estimateItems, estimateName } from './DueDate'
 import { shortDate } from './format'
 import { SubIssues } from './SubIssues'
 import { TitleField } from './TitleField'
@@ -131,6 +132,30 @@ export function IssuePage() {
               <span className="truncate">
                 <span className="text-muted-foreground">{issueRef(parent)}</span> {parent.title}
               </span>
+            ) : (
+              <span className="text-muted-foreground">None</span>
+            )}
+          </button>
+        </Picker>
+      </Property>
+      <Property label="Due date">
+        <DueDatePicker value={issue.dueDate} onChange={(dueDate) => updateIssue(issue.id, { dueDate })}>
+          <button type="button" className={pick}>
+            {issue.dueDate ? (
+              <DueChip day={issue.dueDate} closed={isClosed(issue)} className="border-0 px-0 text-[15px]" />
+            ) : (
+              <span className="text-muted-foreground">None</span>
+            )}
+          </button>
+        </DueDatePicker>
+      </Property>
+      <Property label="Estimate">
+        <Picker placeholder="Estimate…" items={estimateItems(issue.estimate)} value={issue.estimate ?? null} onSelect={(estimate) => updateIssue(issue.id, { estimate })}>
+          <button type="button" className={pick}>
+            {issue.estimate != null ? (
+              <>
+                <EstimateIcon /> {estimateName(issue.estimate)}
+              </>
             ) : (
               <span className="text-muted-foreground">None</span>
             )}

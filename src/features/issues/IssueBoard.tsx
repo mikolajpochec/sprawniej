@@ -11,10 +11,11 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
-import type { Group } from '@/data/select'
+import { isClosed, type Group } from '@/data/select'
 import { issueRef, useData } from '@/data/store'
 import type { Display, Issue } from '@/model/schema'
 import { cn } from '@/lib/utils'
+import { DueChip, EstimateChip } from './DueDate'
 import { PriorityIcon, StatusIcon } from './icons'
 import { GroupIcon } from './GroupIcon'
 import { SubIssueCount } from './SubIssueCount'
@@ -72,6 +73,8 @@ function IssueCard({ issue, dragRef, dragProps, style, ghost, lifted }: CardProp
         <span className="inline-flex h-6 items-center rounded-md border px-1.5">
           <PriorityIcon priority={issue.priority} />
         </span>
+        {issue.dueDate && <DueChip day={issue.dueDate} closed={isClosed(issue)} />}
+        {issue.estimate != null && <EstimateChip points={issue.estimate} />}
         <SubIssueCount id={issue.id} />
         {issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)}
       </div>

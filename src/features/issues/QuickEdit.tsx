@@ -1,5 +1,5 @@
 /**
- * The menu that S (status), P (priority), A (assignee) and L (labels) open: for the picked issues, or the one under
+ * The menu that S (status), P (priority), A (assignee), L (labels) and E (estimate) open: for the picked issues, or the one under
  * the mouse, the focused one, or the open one. Pick with the keyboard or the mouse; labels stay open so you can
  * tick several. With several issues, a label is ticked when all of them have it.
  */
@@ -13,16 +13,19 @@ import { cn } from '@/lib/utils'
 import type { Issue } from '@/model/schema'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/ui/command'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog'
+import { estimateItems } from './DueDate'
 import { priorityItems, statusItems, useLabelItems, usePeopleItems } from './pickers'
 
-const TITLES: Record<QuickField, string> = { status: 'Change status', priority: 'Change priority', assignee: 'Assign to', labels: 'Change labels' }
+const TITLES: Record<QuickField, string> = { status: 'Change status', priority: 'Change priority', assignee: 'Assign to', labels: 'Change labels', estimate: 'Set estimate' }
 
 function Menu({ issues, field }: { issues: Issue[]; field: QuickField }) {
   const people = usePeopleItems()
   const labels = useLabelItems()
   const close = () => usePalette.setState({ quick: null })
-  const items = (field === 'status' ? statusItems : field === 'priority' ? priorityItems : field === 'assignee' ? people : labels) as PickerItem<unknown>[]
-  const chosen = (v: unknown) => issues.every((i) => (field === 'labels' ? i.labels.includes(v as string) : i[field] === v))
+  const items = (
+    field === 'status' ? statusItems : field === 'priority' ? priorityItems : field === 'assignee' ? people : field === 'estimate' ? estimateItems(issues.length === 1 ? issues[0].estimate : null) : labels
+  ) as PickerItem<unknown>[]
+  const chosen = (v: unknown) => issues.every((i) => (field === 'labels' ? i.labels.includes(v as string) : (i[field] ?? null) === v))
 
   function pick(v: unknown) {
     if (field === 'labels') {
@@ -36,7 +39,7 @@ function Menu({ issues, field }: { issues: Issue[]; field: QuickField }) {
       }
       return
     }
-    for (const i of issues) if (i[field] !== v) updateIssue(i.id, { [field]: v })
+    for (const i of issues) if ((i[field] ?? null) !== v) updateIssue(i.id, { [field]: v })
     close()
   }
 

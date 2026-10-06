@@ -66,7 +66,7 @@ function dropNotes(files: Map<string, string | null>, about: (n: InboxItem) => b
 
 /** fields a person can change (Pick, not Omit: Omit drops named keys on passthrough schemas) */
 export type IssuePatch = Partial<
-  Pick<Issue, 'title' | 'description' | 'status' | 'priority' | 'assignee' | 'labels' | 'project' | 'parent' | 'sortOrder' | 'duplicateOf'>
+  Pick<Issue, 'title' | 'description' | 'status' | 'priority' | 'assignee' | 'labels' | 'project' | 'parent' | 'sortOrder' | 'duplicateOf' | 'dueDate' | 'estimate'>
 >
 
 function describe(issue: Issue, patch: IssuePatch): string {
@@ -82,6 +82,8 @@ function describe(issue: Issue, patch: IssuePatch): string {
     const parent = patch.parent ? useData.getState().issues[patch.parent] : undefined
     return parent ? `${ref}: sub-issue of ${issueRef(parent)}` : `${ref}: no parent`
   }
+  if (patch.dueDate !== undefined) return patch.dueDate ? `${ref}: due ${patch.dueDate}` : `${ref}: no due date`
+  if (patch.estimate !== undefined) return patch.estimate === null ? `${ref}: no estimate` : `${ref}: estimate ${patch.estimate}`
   if (patch.title !== undefined) return `${ref}: edit title`
   if (patch.description !== undefined) return `${ref}: edit description`
   if (patch.sortOrder !== undefined) return `${ref}: reorder`
@@ -141,6 +143,8 @@ export interface NewIssue {
   labels?: string[]
   project?: string | null
   parent?: string | null
+  dueDate?: string | null
+  estimate?: number | null
 }
 
 /** a team's next issue number: one more than any issue it has, or ever had (deleted numbers aren't reused) */
@@ -187,6 +191,8 @@ export function createIssue(input: NewIssue): Issue {
     labels: input.labels ?? [],
     project: input.project ?? null,
     parent: input.parent ?? null,
+    ...(input.dueDate && { dueDate: input.dueDate }),
+    ...(input.estimate != null && { estimate: input.estimate }),
     sortOrder: parent && parent.team === input.team ? subIssueOrder(inTeam, parent) : generateKeyBetween(null, first),
     createdBy: s.me?.login ?? 'unknown',
     createdAt: now(),

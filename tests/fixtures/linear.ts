@@ -42,7 +42,7 @@ export const linearFixture: LinearData = {
     { id: 'p-other', name: 'Elsewhere', icon: null, description: '', targetDate: null, createdAt: '2026-01-01T00:00:00.000Z', status: { type: 'planned' }, lead: null, teams: { nodes: [{ id: 't-xyz' }] } },
   ],
   issues: [
-    issue({ id: 'i-1', number: 1, title: 'Charts are slow', sortOrder: 30, priority: 2, state: { name: 'In Review', type: 'started' }, assignee: { id: 'u-bob' }, labels: { nodes: [{ id: 'l-bug' }, { id: 'l-charts' }] }, project: { id: 'p-launch' }, description: 'See https://linear.app/acme/issue/ENG-2/fix-axis and [ENG-2](https://linear.app/acme/issue/ENG-2/fix-axis) and https://linear.app/acme/issue/OPS-9/x' }),
+    issue({ id: 'i-1', number: 1, title: 'Charts are slow', sortOrder: 30, priority: 2, dueDate: '2026-11-03', estimate: 5, state: { name: 'In Review', type: 'started' }, assignee: { id: 'u-bob' }, labels: { nodes: [{ id: 'l-bug' }, { id: 'l-charts' }] }, project: { id: 'p-launch' }, description: 'See https://linear.app/acme/issue/ENG-2/fix-axis and [ENG-2](https://linear.app/acme/issue/ENG-2/fix-axis) and https://linear.app/acme/issue/OPS-9/x' }),
     issue({ id: 'i-2', number: 2, title: 'Fix the axis', sortOrder: 10, parent: { id: 'i-1' }, labels: { nodes: [{ id: 'l-bug2' }] }, state: { name: 'Done', type: 'completed' }, completedAt: '2026-02-01T00:00:00.000Z' }),
     issue({ id: 'i-3', number: 3, title: 'Old idea', sortOrder: 20, state: { name: 'Triage', type: 'triage' }, creator: { id: 'u-old' } }),
     issue({ id: 'i-9', number: 9, title: 'New logo', team: { id: 't-des' }, state: { name: 'Cancelled', type: 'canceled' }, canceledAt: '2026-03-01T00:00:00.000Z' }),

@@ -36,7 +36,7 @@ const isGroupId = (id: UniqueIdentifier) => String(id).startsWith(GROUP)
 /** scroll only when the pointer is close to the edge (dnd-kit's default, 20%, scrolls a wide board too eagerly) */
 export const AUTO_SCROLL = { threshold: { x: 0.08, y: 0.12 } }
 
-const ORDER_NAMES: Record<Display['ordering'], string> = { manual: 'manual', priority: 'priority', updated: 'last update', created: 'creation date' }
+const ORDER_NAMES: Record<Display['ordering'], string> = { manual: 'manual', priority: 'priority', due: 'due date', updated: 'last update', created: 'creation date' }
 
 /** the order each group shows its issues in: sub-issues right under their parent in a list */
 function baseOrder(groups: Group[], nest: boolean): Record<string, string[]> {

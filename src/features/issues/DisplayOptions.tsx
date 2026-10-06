@@ -13,7 +13,7 @@ import { Switch } from '@/ui/switch'
 import { useSelection } from './selection'
 
 const GROUPING_NAMES: Record<Grouping, string> = { status: 'Status', assignee: 'Assignee', priority: 'Priority', project: 'Project', none: 'No grouping' }
-const ORDERING_NAMES: Record<Ordering, string> = { manual: 'Manual', priority: 'Priority', updated: 'Last updated', created: 'Newest first' }
+const ORDERING_NAMES: Record<Ordering, string> = { manual: 'Manual', priority: 'Priority', due: 'Due date', updated: 'Last updated', created: 'Newest first' }
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (

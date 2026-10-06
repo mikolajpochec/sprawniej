@@ -161,7 +161,7 @@ export function joinFrontMatter(fields: Record<string, unknown>, body: string): 
 }
 
 /** front matter keys in a fixed, readable order; anything unknown keeps its place after them */
-const ISSUE_ORDER = ['id', 'number', 'title', 'status', 'priority', 'assignee', 'labels', 'project', 'parent', 'sortOrder', 'createdBy', 'createdAt', 'updatedAt', 'completedAt', 'duplicateOf']
+const ISSUE_ORDER = ['id', 'number', 'title', 'status', 'priority', 'assignee', 'labels', 'project', 'parent', 'dueDate', 'estimate', 'sortOrder', 'createdBy', 'createdAt', 'updatedAt', 'completedAt', 'duplicateOf']
 
 function ordered(obj: Record<string, unknown>, order: string[], drop: string[] = []): Record<string, unknown> {
   const out: Record<string, unknown> = {}
