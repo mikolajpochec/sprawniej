@@ -12,13 +12,14 @@ import { Markdown } from '@tiptap/markdown'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Placeholder } from '@tiptap/extensions'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import { common, createLowlight } from 'lowlight'
+import { createLowlight } from 'lowlight'
 import { cn } from '@/lib/utils'
 import { MentionSuggest } from './MentionSuggest'
 import { References } from './references'
+import { LANGUAGES } from './languages'
 import { tidyMarkdown } from './tidy'
 
-const lowlight = createLowlight(common)
+const lowlight = createLowlight(LANGUAGES)
 
 const SAVE_AFTER = 400
 

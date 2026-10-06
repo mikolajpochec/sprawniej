@@ -106,6 +106,7 @@ function BadKeyDialog() {
           intro={<></>}
           onDone={(token, me) => {
             signIn(token, me)
+            workspace()?.restartOtherTabs() // they pick up the new key too
             location.reload()
           }}
         />

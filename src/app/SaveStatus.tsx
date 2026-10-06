@@ -7,7 +7,11 @@ export function SaveStatus() {
   const { state, detail, pending } = useSync()
   const view = {
     loading: { icon: <Loader2 className="size-4 animate-spin" />, label: 'Loading…', tip: 'Getting the latest from your team.' },
-    saving: { icon: <Loader2 className="size-4 animate-spin" />, label: 'Saving…', tip: 'Your changes are safe on this device and on their way to your team.' },
+    saving: {
+      icon: <Loader2 className="size-4 animate-spin" />,
+      label: 'Saving…',
+      tip: `Your changes are safe on this device and on their way to your team.${detail ? ` ${detail}` : ''}`,
+    },
     saved: { icon: <CloudCheck className="size-4" />, label: 'Saved', tip: 'Everything is saved, and your team can see it.' },
     offline: {
       icon: <CloudOff className="size-4" />,

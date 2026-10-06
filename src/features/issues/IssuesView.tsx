@@ -70,11 +70,11 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, empt
         ))
       ) : display.layout === 'list' ? (
         <div className="min-h-0 flex-1 overflow-y-auto pb-8">
-          <IssueList groups={groups} all={all} onAdd={addTo} />
+          <IssueList groups={groups} onAdd={addTo} />
         </div>
       ) : (
         <div className="min-h-0 flex-1">
-          <IssueBoard groups={groups} all={all} onAdd={addTo} />
+          <IssueBoard groups={groups} onAdd={addTo} />
         </div>
       )}
     </div>

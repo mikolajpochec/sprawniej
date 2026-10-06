@@ -3,17 +3,17 @@ import { Link } from 'wouter'
 import { Plus } from 'lucide-react'
 import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
-import { childProgress, type Group } from '@/data/select'
+import type { Group } from '@/data/select'
 import { issueRef, useData } from '@/data/store'
 import type { Issue } from '@/model/schema'
 import { PriorityIcon, StatusIcon } from './icons'
 import { GroupIcon } from './GroupIcon'
+import { SubIssueCount } from './SubIssueCount'
 import { TitleText } from './TitleText'
 
-function IssueCard({ issue, all }: { issue: Issue; all: Issue[] }) {
+function IssueCard({ issue }: { issue: Issue }) {
   const assignee = useData((s) => (issue.assignee ? s.people[issue.assignee] : undefined))
   const labels = useData((s) => s.labels)
-  const kids = childProgress(issue.id, all)
   return (
     <Link
       href={`/issue/${issueRef(issue)}`}
@@ -35,18 +35,14 @@ function IssueCard({ issue, all }: { issue: Issue; all: Issue[] }) {
         <span className="inline-flex h-6 items-center rounded-md border px-1.5">
           <PriorityIcon priority={issue.priority} />
         </span>
-        {kids.total > 0 && (
-          <span className="rounded-full border px-2 text-xs leading-5 text-muted-foreground tabular-nums">
-            {kids.done}/{kids.total}
-          </span>
-        )}
+        <SubIssueCount id={issue.id} />
         {issue.labels.map((id) => labels[id] && <LabelChip key={id} label={labels[id]} />)}
       </div>
     </Link>
   )
 }
 
-export function IssueBoard({ groups, all, onAdd }: { groups: Group[]; all: Issue[]; onAdd?: (group: Group) => void }) {
+export function IssueBoard({ groups, onAdd }: { groups: Group[]; onAdd?: (group: Group) => void }) {
   return (
     <div className="flex h-full gap-4 overflow-x-auto pb-4">
       {groups.map((g) => (
@@ -63,7 +59,7 @@ export function IssueBoard({ groups, all, onAdd }: { groups: Group[]; all: Issue
           </header>
           <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
             {g.issues.map((i) => (
-              <IssueCard key={i.id} issue={i} all={all} />
+              <IssueCard key={i.id} issue={i} />
             ))}
           </div>
         </section>

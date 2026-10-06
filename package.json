@@ -1,7 +1,7 @@
 {
   "name": "sprawniej",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -30,6 +30,7 @@
     "cn": "^0.4.0",
     "fractional-indexing": "^4.0.0",
     "frimousse": "^0.4.0",
+    "highlight.js": "^11.11.1",
     "idb-keyval": "^6.3.0",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.52.0",

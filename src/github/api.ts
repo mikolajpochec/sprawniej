@@ -8,11 +8,28 @@ const VERSION = '2022-11-28'
 
 export class GitHubError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  /** GitHub asked us to wait: don't call again before this time (ms since 1970) */
+  retryAt?: number
+  constructor(status: number, message: string, retryAt?: number) {
     super(message)
     this.name = 'GitHubError'
     this.status = status
+    this.retryAt = retryAt
   }
+}
+
+/** When GitHub says "too many requests", when may we call again? undefined = it isn't that kind of error. */
+export function retryAtFrom(status: number, headers: Headers, message: string, now = Date.now()): number | undefined {
+  if (status !== 403 && status !== 429) return undefined
+  const after = Number(headers.get('retry-after'))
+  if (after > 0) return now + after * 1000
+  if (headers.get('x-ratelimit-remaining') === '0') {
+    const reset = Number(headers.get('x-ratelimit-reset'))
+    return reset > 0 ? Math.max(reset * 1000, now + 1000) : now + 60_000
+  }
+  // the "secondary" limit (too many saves in a short time) sometimes comes without headers: wait a minute
+  if (/rate limit/i.test(message)) return now + 60_000
+  return undefined
 }
 
 /** GitHub refused the key: it was revoked, expired or mistyped */
@@ -47,8 +64,9 @@ export async function request<T>(token: string, method: string, path: string, op
       /* no body */
     }
     if (res.status === 401) msg = 'GitHub doesn’t accept this key anymore.'
-    if (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0') msg = 'GitHub asked us to slow down. We’ll try again in a few minutes.'
-    throw new GitHubError(res.status, msg)
+    const retryAt = retryAtFrom(res.status, res.headers, msg)
+    if (retryAt) msg = 'GitHub asked us to slow down for a moment.'
+    throw new GitHubError(res.status, msg, retryAt)
   }
   const data = res.status === 204 ? (undefined as T) : ((await res.json()) as T)
   return { data, res }

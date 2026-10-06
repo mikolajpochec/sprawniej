@@ -3,7 +3,7 @@
  * Everything saves by itself; there is no Save button anywhere (CLAUDE.md, golden rules).
  */
 import { useState, type ReactNode } from 'react'
-import Markdown from 'react-markdown'
+import { Markdown } from '@/components/Markdown'
 import { Link, useLocation, useParams } from 'wouter'
 import { useShallow } from 'zustand/react/shallow'
 import { Link2, MoreHorizontal, Trash2 } from 'lucide-react'
@@ -15,7 +15,7 @@ import { LabelChip } from '@/components/LabelChip'
 import { Picker } from '@/components/Picker'
 import { createLabel, deleteIssue, moveIssueToTeam, updateIssue } from '@/data/actions'
 import { findByRef, issueRef, useData } from '@/data/store'
-import { Editor } from '@/editor/Editor'
+import { Editor } from '@/editor/LazyEditor'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog'
@@ -23,6 +23,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { PriorityIcon, StatusIcon } from './icons'
 import { IssueRow } from './IssueList'
 import { shortDate } from './format'
+import { TitleField } from './TitleField'
 import { priorityItems, statusItems, useLabelItems, useParentItems, usePeopleItems, useProjectItems } from './pickers'
 
 function Property({ label, children }: { label: string; children: ReactNode }) {
@@ -47,7 +48,7 @@ export function IssuePage() {
   const labels = useData((s) => s.labels)
   const project = useData((s) => (issue?.project ? s.projects[issue.project] : undefined))
   const parent = useData((s) => (issue?.parent ? s.issues[issue.parent] : undefined))
-  const all = useData(useShallow((s) => Object.values(s.issues)))
+  const children = useData(useShallow((s) => (issue ? Object.values(s.issues).filter((i) => i.parent === issue.id) : []))).sort((a, b) => (a.sortOrder < b.sortOrder ? -1 : 1))
   const comments = useData((s) => (issue ? s.comments[issue.id] : undefined))
   const peopleItems = usePeopleItems()
   const labelItems = useLabelItems()
@@ -56,7 +57,6 @@ export function IssuePage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   useCrumbs(issue && team ? [{ label: `${team.emoji} ${team.name}`, href: `/team/${team.key}/issues` }, { label: issueRef(issue) }] : [])
   if (!issue) return <NotFound />
-  const children = all.filter((i) => i.parent === issue.id).sort((a, b) => (a.sortOrder < b.sortOrder ? -1 : 1))
   const assignee = issue.assignee ? people[issue.assignee] : undefined
 
   return (
@@ -69,15 +69,7 @@ export function IssuePage() {
             </Link>
           )}
           <div className="flex items-start gap-2">
-            <textarea
-              value={issue.title}
-              placeholder="Issue title"
-              onChange={(e) => updateIssue(issue.id, { title: e.target.value.replace(/\n/g, ' ') })}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), (e.target as HTMLTextAreaElement).blur())}
-              rows={1}
-              className="field-sizing-content w-full resize-none bg-transparent text-2xl font-semibold leading-snug outline-none"
-              aria-label="Title"
-            />
+            <TitleField key={issue.id} id={issue.id} value={issue.title} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon-sm" aria-label="More actions">
@@ -106,7 +98,7 @@ export function IssuePage() {
               <h2 className="mb-2 text-sm font-medium text-muted-foreground">Sub-issues</h2>
               <div className="rounded-lg border py-1">
                 {children.map((c) => (
-                  <IssueRow key={c.id} issue={c} all={all} />
+                  <IssueRow key={c.id} issue={c} />
                 ))}
               </div>
             </section>

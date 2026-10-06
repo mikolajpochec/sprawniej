@@ -52,11 +52,12 @@ Title line only, plain words. No AI attribution trailers.
   in a scratch folder, `chromium.launchPersistentContext('<scratch>/profile', { channel: 'chrome', headless: true,
   serviceWorkers: 'block' })` against `bunx vite preview --port 5299` of a fresh `bun run build`. Blocking the
   service worker stops the PWA cache from serving an older build.
-- Two people at once: two origins (ports 5298 and 5297) have separate storage.
+- Two people at once: two origins (ports 5298 and 5297) have separate storage. Two tabs on the same origin share
+  one leader (docs/architecture.md, "Several tabs"); test both.
 - Sync tests use a throwaway repo, never a real team's workspace.
 - `window.sprawniej` has `data` (the store), `actions` (everything a person can do) and `sync` (`status`, `workspace()`),
   so a script can drive and check the app without clicking through every screen. Call `sync.workspace().syncNow()` to
-  sync at once instead of waiting 30 s.
+  sync at once instead of waiting 30 s (in a follower tab it asks the leader, which skips checks closer than 5 s apart).
 - Never write a GitHub key into a file (scripts, `.env`, the repo). Pass it as an environment variable for one command.
 
 ## Design

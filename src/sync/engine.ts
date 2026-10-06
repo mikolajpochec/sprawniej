@@ -5,7 +5,8 @@
  *   save     → one tree on top of GitHub's latest, one commit, move the branch; if someone saved first: pull, retry
  *   pull     → "anything new?" (free when nothing is) → changed files only → merge with pending → store
  *
- * Only one save or pull runs at a time (`lock`).
+ * Only one save or pull runs at a time (`lock`), and only one tab per workspace runs them: the leader (tabs.ts).
+ * Other tabs are followers. They send each change to the leader and show the files it sends back.
  */
 import { toast } from 'sonner'
 import { create } from 'zustand'
@@ -19,6 +20,7 @@ import {
   getFiles,
   getHead,
   getRepo,
+  GitHubError,
   isBadKey,
   isOffline,
   moveBranch,
@@ -31,15 +33,17 @@ import { applyFiles, resetProjection } from '@/data/project'
 import { EMPTY, issueRef, useData } from '@/data/store'
 import type { Person } from '@/model/schema'
 import { LocalCopy, type Meta } from './local'
-import { mergeIncoming } from './merge'
+import { mergeFile, mergeIncoming } from './merge'
+import { keepRecent, saveDelay } from './pace'
 import { renumber } from './renumber'
 import { blobSha } from './sha'
+import { Tabs, type TabMsg } from './tabs'
 
 export type SyncState = 'loading' | 'saved' | 'saving' | 'offline' | 'error' | 'bad-key'
 
-interface SyncStatus {
+export interface SyncStatus {
   state: SyncState
-  /** what went wrong, in plain words */
+  /** what went wrong (or why we're waiting), in plain words */
   detail?: string
   /** changes not on GitHub yet */
   pending: number
@@ -49,12 +53,18 @@ interface SyncStatus {
 
 export const useSync = create<SyncStatus>()(() => ({ state: 'loading', pending: 0 }))
 
-const SAVE_DELAY = 1500
 const PULL_EVERY = 30_000
+/** followers ask "anything new?" when they get focus; the leader answers at most this often */
+const SYNC_AT_MOST_EVERY = 5_000
+/** a follower waiting for the leader to save gives up after this */
+const FOLLOWER_WAIT = 15_000
+
+type WriteMsg = Extract<TabMsg, { t: 'write' }>
 
 export class Workspace {
   private local: LocalCopy
   private meta!: Meta
+  private loaded = false
   private base = new Map<string, string>()
   private pending = new Map<string, string | null>()
   private messages: string[] = []
@@ -65,6 +75,23 @@ export class Workspace {
   private retryDelay = 5_000
   private pollTimer: ReturnType<typeof setInterval> | undefined
   private closed = false
+  /** when recent saves happened, to save in bigger batches in a busy hour (pace.ts) */
+  private saves: number[] = []
+  /** GitHub asked us to wait until then */
+  private pausedUntil = 0
+  private lastSync = 0
+
+  private tabs: Tabs
+  /** this tab talks to GitHub; false = it sends its changes to the tab that does */
+  private leader = true
+  /** follower: every file, as the leader last told us */
+  private view = new Map<string, string>()
+  /** follower: our changes the leader hasn't confirmed yet, oldest first */
+  private unconfirmed = new Map<number, WriteMsg>()
+  private seq = 0
+  private ready: () => void = () => {}
+  private waiters = new Set<() => void>()
+  private stopStatus: (() => void) | undefined
 
   readonly repo: RepoRef
   readonly me: Person
@@ -75,69 +102,123 @@ export class Workspace {
     this.token = token
     this.me = me
     this.local = new LocalCopy(repo)
+    this.tabs = new Tabs(`${repo.owner}/${repo.repo}`)
+    this.tabs.onMessage = (m) => this.onTabMessage(m)
   }
 
   private get author(): Author {
     return { name: this.me.name || this.me.login, email: `${this.me.githubId}+${this.me.login}@users.noreply.github.com` }
   }
 
-  /** Open a workspace: show the local copy at once, download it first if this browser has none. */
+  /**
+   * Open a workspace. The leading tab shows the browser copy at once (downloading it first if there is none).
+   * Any other tab asks the leader for what it has.
+   */
   static async open(repo: RepoRef, token: string, me: Person): Promise<Workspace> {
     const ws = new Workspace(repo, token, me)
     resetProjection()
     useData.setState({ ...EMPTY, me })
     useSync.setState({ state: 'loading', pending: 0, detail: undefined, progress: undefined })
-    const snap = await ws.local.load()
-    ws.base = snap.base
-    ws.pending = snap.pending
-    ws.messages = snap.messages
-    if (snap.meta) ws.meta = snap.meta
-    else await ws.lock(() => ws.download())
-    ws.showAll()
-    ws.startPolling()
-    useSync.setState({ state: ws.pending.size ? 'saving' : 'saved', pending: ws.pending.size, progress: undefined })
-    void ws.syncNow()
+    const leads = await ws.tabs.lead(() => void ws.takeOver())
+    if (leads) await ws.lead()
+    else await ws.follow()
     return ws
+  }
+
+  /** load the browser copy and start talking to GitHub. `shown` = what this tab shows already (taking over). */
+  private async lead(shown?: Map<string, string>) {
+    this.leader = true
+    const snap = await this.local.load()
+    this.base = snap.base
+    this.pending = snap.pending
+    this.messages = snap.messages
+    if (snap.meta) this.meta = snap.meta
+    else await this.lock(() => this.download())
+    if (this.closed) return
+    this.loaded = true
+
+    if (shown) {
+      // redraw only what differs from what this tab was showing
+      const diff = new Map<string, string | null>()
+      for (const p of new Set([...shown.keys(), ...this.paths()])) if ((shown.get(p) ?? null) !== this.read(p)) diff.set(p, this.read(p))
+      applyFiles(diff, this.me.login)
+    } else this.showAll()
+    // our changes the old leader never confirmed
+    for (const w of this.unconfirmed.values()) this.takeWrite(w)
+    this.unconfirmed.clear()
+
+    useSync.setState({ state: this.pending.size ? 'saving' : 'saved', pending: this.pending.size, progress: undefined })
+    // the other tabs mirror our save chip
+    this.stopStatus = useSync.subscribe((s) => this.tabs.post({ t: 'status', status: { state: s.state, detail: s.detail, pending: s.pending } }))
+    this.tabs.post({ t: 'all', files: this.everything(), status: useSync.getState() })
+    this.startPolling()
+    void this.syncNow()
+  }
+
+  /** another tab leads: ask it for everything, then show what it sends */
+  private follow() {
+    this.leader = false
+    useSync.setState({ progress: 'Opening your workspace…' })
+    const ready = new Promise<void>((r) => (this.ready = r))
+    this.tabs.post({ t: 'hello', from: this.tabs.id })
+    this.startPolling()
+    return ready
+  }
+
+  /** the leading tab closed and this one is next in line */
+  private async takeOver() {
+    if (this.closed) return
+    this.stopPolling()
+    const shown = this.view
+    this.view = new Map()
+    await this.lead(shown)
+    this.ready()
   }
 
   close() {
     this.closed = true
     clearTimeout(this.saveTimer)
     clearTimeout(this.retryTimer)
-    clearInterval(this.pollTimer)
-    window.removeEventListener('online', this.onWake)
-    window.removeEventListener('focus', this.onWake)
-    document.removeEventListener('visibilitychange', this.onVisibility)
+    this.stopPolling()
+    this.stopStatus?.()
+    this.tabs.close()
+    for (const w of this.waiters) w()
   }
 
   // ---------- reading ----------
 
   /** the file as you see it: your unsaved version if there is one, else GitHub's */
   read(path: string): string | null {
+    if (!this.leader) return this.view.get(path) ?? null
     if (this.pending.has(path)) return this.pending.get(path) ?? null
     return this.base.get(path) ?? null
   }
 
   /** every path that currently exists */
   paths(): string[] {
+    if (!this.leader) return [...this.view.keys()]
     const all = new Set([...this.base.keys(), ...this.pending.keys()])
     return [...all].filter((p) => this.read(p) !== null)
   }
 
   get hasUnsaved() {
+    if (!this.leader) return this.unconfirmed.size > 0 || useSync.getState().pending > 0
     return this.pending.size > 0
   }
 
+  private everything(): [string, string][] {
+    return this.paths().map((p) => [p, this.read(p)!])
+  }
+
   private showAll() {
-    const files = new Map<string, string | null>()
-    for (const p of this.paths()) files.set(p, this.read(p))
-    applyFiles(files, this.me.login)
+    applyFiles(new Map(this.everything()), this.me.login)
   }
 
   // ---------- writing ----------
 
-  /** Change files (null = delete). The store updates at once; GitHub gets it about 1.5 s later. */
-  write(files: Map<string, string | null>, message: string) {
+  /** Change files (null = delete). The store updates at once; GitHub gets it a moment later. */
+  write(files: Map<string, string | null>, message: string, ack?: { tab: string; seq: number }) {
+    if (!this.leader) return this.forward(files, message)
     for (const [path, text] of files) {
       this.pending.set(path, text)
       void this.local.putPending(path, text)
@@ -147,19 +228,123 @@ export class Workspace {
       void this.local.setMessages(this.messages)
     }
     applyFiles(files, this.me.login)
-    useSync.setState({ state: navigator.onLine ? 'saving' : 'offline', pending: this.pending.size, detail: undefined })
+    this.tabs.post({ t: 'files', files: [...files], ack })
+    if (Date.now() >= this.pausedUntil) useSync.setState({ state: navigator.onLine ? 'saving' : 'offline', pending: this.pending.size, detail: undefined })
+    else useSync.setState({ pending: this.pending.size })
     this.scheduleSave()
   }
 
-  private scheduleSave(delay = SAVE_DELAY) {
+  /** follower: show the change here at once and hand it to the leader */
+  private forward(changes: Map<string, string | null>, message: string) {
+    const files: WriteMsg['files'] = []
+    for (const [path, after] of changes) {
+      files.push([path, this.view.get(path) ?? null, after])
+      if (after === null) this.view.delete(path)
+      else this.view.set(path, after)
+    }
+    const w: WriteMsg = { t: 'write', from: this.tabs.id, seq: ++this.seq, files, message }
+    this.unconfirmed.set(w.seq, w)
+    applyFiles(changes, this.me.login)
+    useSync.setState({ state: navigator.onLine ? 'saving' : 'offline', pending: Math.max(useSync.getState().pending, 1), detail: undefined })
+    this.tabs.post(w)
+  }
+
+  /** leader: a follower's change. If the file moved on since that tab last saw it, merge, as with a teammate. */
+  private takeWrite(w: WriteMsg) {
+    const files = new Map<string, string | null>()
+    for (const [path, before, after] of w.files) {
+      const now = this.read(path)
+      files.set(path, now === before ? after : mergeFile(path, before, after, now).text)
+    }
+    this.write(files, w.message, { tab: w.from, seq: w.seq })
+  }
+
+  private scheduleSave(delay = saveDelay(this.saves)) {
     clearTimeout(this.saveTimer)
     this.saveTimer = setTimeout(() => void this.syncNow(), delay)
   }
 
   /** save right away (leaving the page, hiding the tab) */
-  flush() {
+  flush(): Promise<void> {
+    if (!this.leader) {
+      this.tabs.post({ t: 'flush' })
+      return this.followerSettled()
+    }
     clearTimeout(this.saveTimer)
     return this.syncNow()
+  }
+
+  // ---------- other tabs ----------
+
+  private onTabMessage(m: TabMsg) {
+    if (m.t === 'restart') return location.reload()
+    if (this.leader) {
+      if (!this.loaded) return // lead() tells everyone once it's ready
+      if (m.t === 'hello') this.tabs.post({ t: 'all', to: m.from, files: this.everything(), status: useSync.getState() })
+      else if (m.t === 'write') this.takeWrite(m)
+      else if (m.t === 'flush') void this.flush()
+      else if (m.t === 'sync' && Date.now() - this.lastSync > SYNC_AT_MOST_EVERY) void this.syncNow()
+      return
+    }
+    if (m.t === 'all') {
+      if (m.to && m.to !== this.tabs.id) return
+      const next = new Map(m.files)
+      const waiting = this.waitingPaths()
+      const diff = new Map<string, string | null>()
+      for (const p of this.view.keys()) if (!next.has(p) && !waiting.has(p)) diff.set(p, null)
+      for (const [p, t] of next) if (!waiting.has(p) && this.view.get(p) !== t) diff.set(p, t)
+      for (const p of waiting) {
+        const mine = this.view.get(p)
+        if (mine === undefined) next.delete(p)
+        else next.set(p, mine)
+      }
+      this.view = next
+      applyFiles(diff, this.me.login)
+      useSync.setState({ ...m.status, progress: undefined })
+      // a new leader: send what the old one never confirmed
+      if (!m.to) for (const w of this.unconfirmed.values()) this.tabs.post(w)
+      this.ready()
+    } else if (m.t === 'files') {
+      if (m.ack?.tab === this.tabs.id) for (const seq of [...this.unconfirmed.keys()]) if (seq <= m.ack.seq) this.unconfirmed.delete(seq)
+      // a file we changed and the leader hasn't confirmed yet keeps our version until it does
+      const waiting = this.waitingPaths()
+      const diff = new Map<string, string | null>()
+      for (const [p, t] of m.files) {
+        if (waiting.has(p)) continue
+        if (t === null) this.view.delete(p)
+        else this.view.set(p, t)
+        diff.set(p, t)
+      }
+      applyFiles(diff, this.me.login)
+    } else if (m.t === 'status') useSync.setState(m.status)
+    for (const w of this.waiters) w()
+  }
+
+  private waitingPaths() {
+    const out = new Set<string>()
+    for (const w of this.unconfirmed.values()) for (const [p] of w.files) out.add(p)
+    return out
+  }
+
+  /** follower: resolves once the leader has our changes and isn't saving any more (or after a while) */
+  private followerSettled(): Promise<void> {
+    return new Promise((resolve) => {
+      const check = () => {
+        if (this.closed || (!this.unconfirmed.size && useSync.getState().state !== 'saving')) done()
+      }
+      const done = () => {
+        clearTimeout(timer)
+        this.waiters.delete(check)
+        resolve()
+      }
+      const timer = setTimeout(done, FOLLOWER_WAIT)
+      this.waiters.add(check)
+    })
+  }
+
+  /** Tell every other tab with this workspace to start over (signed out, or a new GitHub key). */
+  restartOtherTabs() {
+    this.tabs.post({ t: 'restart' })
   }
 
   // ---------- the loop ----------
@@ -172,9 +357,15 @@ export class Workspace {
 
   /** pull, then save what's pending; reports the outcome in the save chip */
   syncNow(): Promise<void> {
+    if (!this.leader) {
+      this.tabs.post({ t: 'sync' })
+      return this.followerSettled()
+    }
     return this.lock(async () => {
       if (this.closed) return
+      if (Date.now() < this.pausedUntil) return // GitHub asked us to wait; retryTimer comes back then
       clearTimeout(this.retryTimer)
+      this.lastSync = Date.now()
       try {
         if (!navigator.onLine) throw new TypeError('offline')
         await this.pull()
@@ -197,6 +388,15 @@ export class Workspace {
       useSync.setState({ state: 'offline', pending: this.pending.size, detail: undefined })
       return // the 'online' event wakes us up
     }
+    if (e instanceof GitHubError && e.retryAt) {
+      // not a failure: GitHub wants fewer saves for a while. Changes are safe here; we save again after the wait.
+      this.pausedUntil = e.retryAt
+      const at = new Date(e.retryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      useSync.setState({ state: 'saving', pending: this.pending.size, detail: `GitHub asked us to slow down, so we’ll save again at ${at}.` })
+      clearTimeout(this.retryTimer)
+      this.retryTimer = setTimeout(() => void this.syncNow(), e.retryAt - Date.now() + 500)
+      return
+    }
     console.error('Sprawniej sync', e)
     useSync.setState({ state: 'error', pending: this.pending.size, detail: (e as Error).message })
     this.retryTimer = setTimeout(() => void this.syncNow(), this.retryDelay)
@@ -209,6 +409,7 @@ export class Workspace {
     else void this.syncNow()
   }
 
+  /** every 30 s while you look at the tab, and whenever you come back to it */
   private startPolling() {
     this.pollTimer = setInterval(() => {
       if (document.visibilityState === 'visible') void this.syncNow()
@@ -216,6 +417,13 @@ export class Workspace {
     window.addEventListener('online', this.onWake)
     window.addEventListener('focus', this.onWake)
     document.addEventListener('visibilitychange', this.onVisibility)
+  }
+
+  private stopPolling() {
+    clearInterval(this.pollTimer)
+    window.removeEventListener('online', this.onWake)
+    window.removeEventListener('focus', this.onWake)
+    document.removeEventListener('visibilitychange', this.onVisibility)
   }
 
   // ---------- download, pull, save ----------
@@ -300,6 +508,7 @@ export class Workspace {
 
     // show the merged result before anything else can run, so your next edit starts from it
     applyFiles(shown, this.me.login)
+    this.tabs.post({ t: 'files', files: [...shown] })
     await this.local.putBase(baseUpdate)
     await this.local.setMeta(this.meta)
     if (merged.lostLines.length) this.tellAboutClashes(merged.lostLines)
@@ -373,6 +582,7 @@ export class Workspace {
       await this.local.setMeta(this.meta)
       this.messages = this.messages.slice(msgCount)
       void this.local.setMessages(this.messages)
+      this.saves = keepRecent([...this.saves, Date.now()])
       return
     }
     throw new Error('Teammates keep saving at the same moment. We’ll try again shortly.')
@@ -395,6 +605,7 @@ export class Workspace {
 
   /** forget this browser's copy (signing out) */
   async wipe() {
+    this.restartOtherTabs()
     this.close()
     await this.local.wipe()
   }

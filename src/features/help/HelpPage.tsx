@@ -1,5 +1,5 @@
 /** The user guide (docs/user-guide.md), shown inside the app for teammates who never open GitHub. */
-import Markdown from 'react-markdown'
+import { Markdown } from '@/components/Markdown'
 import guide from '../../../docs/user-guide.md?raw'
 import { useCrumbs } from '@/app/chrome'
 
