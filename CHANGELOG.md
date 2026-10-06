@@ -3,6 +3,14 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.3.0: Drag and drop
+*2026-10-07*
+
+- Drag issues to arrange them, in a list or on a board
+- Drop an issue into another column or group to change its status, priority, assignee or project
+- No mouse needed: Space picks an issue up, arrows move it, Space drops it
+- New Display menu: group and sort issues your way, hide finished issues or sub-issues
+
 ## 0.2.1: Faster, and calmer with many tabs
 *2026-10-07*
 

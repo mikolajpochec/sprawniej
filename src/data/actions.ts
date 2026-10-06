@@ -13,6 +13,7 @@ import { FORMAT_VERSION } from '@/model/schema'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { workspace } from '@/sync/engine'
 import { commentToFile as commentFile, issueToFile, jsonToFile, paths } from './files'
+import { keyBetween } from './ordering'
 import { pathOf } from './project'
 import { applyFiles } from './project'
 import { issueRef, useData } from './store'
@@ -61,6 +62,22 @@ export function updateIssue(id: string, patch: IssuePatch): void {
     next.completedAt = statusOf(patch.status).group === 'completed' ? now() : null
   }
   save(one(paths.issue(next), issueToFile(next)), describe(old, patch))
+}
+
+/**
+ * A drag-n-drop drop. `patch` = what the group it landed in stands for (status, priority…); `place` = its new
+ * neighbours (issue ids, null = top or bottom), or null to keep its place (the list isn't in manual order).
+ * One file changes either way.
+ */
+export function moveIssue(id: string, to: { patch: IssuePatch; place: { prev: string | null; next: string | null } | null }) {
+  const issues = useData.getState().issues
+  if (!issues[id]) return
+  const patch: IssuePatch = { ...to.patch }
+  if (to.place) {
+    const key = (x: string | null) => (x && issues[x] ? issues[x].sortOrder : null)
+    patch.sortOrder = keyBetween(key(to.place.prev), key(to.place.next))
+  }
+  if (Object.keys(patch).length) updateIssue(id, patch)
 }
 
 export interface NewIssue {
