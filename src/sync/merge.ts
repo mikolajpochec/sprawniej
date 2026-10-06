@@ -89,6 +89,43 @@ function mergeFrontMatterFile(base: string | null, ours: string, theirs: string,
   return joinFrontMatter(fields, body)
 }
 
+/** one record per line, keyed by id (archive month files) */
+function records(text: string | null): Map<string, Record<string, unknown>> {
+  const out = new Map<string, Record<string, unknown>>()
+  for (const line of (text ?? '').split('\n')) {
+    if (!line.trim()) continue
+    try {
+      const v = JSON.parse(line) as Record<string, unknown>
+      if (typeof v.id === 'string') out.set(v.id, v)
+    } catch {
+      /* a broken line drops out */
+    }
+  }
+  return out
+}
+
+/**
+ * Archive month files merge issue by issue: issues archived on either side are all kept, an issue restored on one
+ * side and untouched on the other goes, and the same issue changed on both sides merges like any other fields.
+ */
+export function mergeArchive(base: string | null, ours: string, theirs: string, ctx: Ctx): string | null {
+  const b = records(base)
+  const o = records(ours)
+  const t = records(theirs)
+  const out: Record<string, unknown>[] = []
+  for (const id of new Set([...o.keys(), ...t.keys(), ...b.keys()])) {
+    const [bv, ov, tv] = [b.get(id), o.get(id), t.get(id)]
+    if (!ov && !tv) continue
+    if (bv && !ov && same(tv, bv)) continue // we restored it, they didn't touch it
+    if (bv && !tv && same(ov, bv)) continue // they restored it
+    if (!ov || !tv) out.push((ov ?? tv)!) // added on one side, or changed on one side and restored on the other
+    else out.push(mergeValue(bv, ov, tv, ctx) as Record<string, unknown>)
+  }
+  if (!out.length) return null
+  out.sort((x, y) => (String(x.id) < String(y.id) ? -1 : 1))
+  return `${out.map((r) => JSON.stringify(r)).join('\n')}\n`
+}
+
 export function mergeFile(path: string, base: string | null, ours: string | null, theirs: string | null): MergeResult {
   if (ours === theirs) return { text: ours, lostLines: false }
   if (ours === base) return { text: theirs, lostLines: false }
@@ -104,8 +141,14 @@ export function mergeFile(path: string, base: string | null, ours: string | null
       const text = mergeFrontMatterFile(base, ours, theirs, ctx, kind === 'issue')
       return { text, lostLines: (ctx.textConflicts ?? 0) > 0 }
     }
+    if (kind === 'archive') return { text: mergeArchive(base, ours, theirs, ctx), lostLines: false }
     if (path.endsWith('.json')) {
-      const v = mergeValue(base === null ? undefined : JSON.parse(base), JSON.parse(ours), JSON.parse(theirs), ctx)
+      const v = mergeValue(base === null ? undefined : JSON.parse(base), JSON.parse(ours), JSON.parse(theirs), ctx) as Record<string, unknown>
+      // a team's highest used number only ever goes up, whoever saved last
+      if (kind === 'team') {
+        const highest = Math.max(...[ours, theirs].map((x) => Number((JSON.parse(x) as { lastNumber?: number }).lastNumber ?? 0)))
+        if (highest > 0) v.lastNumber = highest
+      }
       return { text: `${JSON.stringify(v, null, 2)}\n`, lostLines: false }
     }
   } catch {

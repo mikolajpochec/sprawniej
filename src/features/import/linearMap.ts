@@ -6,9 +6,9 @@
  * the first time instead of making copies.
  */
 import { generateNKeysBetween } from 'fractional-indexing'
-import { commentToFile, issueToFile, jsonToFile, paths } from '@/data/files'
+import { archiveMonth, archiveToFile, commentToFile, issueToFile, jsonToFile, paths } from '@/data/files'
 import { STATUSES, type Priority, type StatusId } from '@/model/status'
-import type { Comment, Issue, Label, Person, Project, Team } from '@/model/schema'
+import { AUTO_ARCHIVE_MONTHS, type ArchivedIssue, type Comment, type Issue, type Label, type Person, type Project, type Team } from '@/model/schema'
 import type { LIssue, LinearData, LTeam, LUser } from './linearApi'
 
 // ---------- people ----------
@@ -117,11 +117,14 @@ export interface Existing {
   labels: Record<string, Label>
   projects: Record<string, Project>
   comments: Record<string, Comment[]>
+  /** archived issues (loaded), so a second import knows them too */
+  archive?: Record<string, ArchivedIssue>
 }
 
 export interface ImportResult {
   files: Map<string, string | null>
-  counts: { teams: number; labels: number; projects: number; issues: number; comments: number }
+  /** `archived`: of the issues, how many went straight into the archive (finished long ago) */
+  counts: { teams: number; labels: number; projects: number; issues: number; comments: number; archived: number }
   /** imported issues that couldn't keep their number, because the team here already used it */
   renumbered: { from: string; to: string }[]
 }
@@ -155,7 +158,7 @@ function orderKeys(issues: LIssue[]): Map<string, string> {
 
 export function buildImport(data: LinearData, choices: ImportChoices, ws: Existing, newId: () => string, now: string): ImportResult {
   const files = new Map<string, string | null>()
-  const counts = { teams: 0, labels: 0, projects: 0, issues: 0, comments: 0 }
+  const counts = { teams: 0, labels: 0, projects: 0, issues: 0, comments: 0, archived: 0 }
   const renumbered: ImportResult['renumbered'] = []
   const login = (u: { id: string } | null | undefined) => (u ? (choices.people[u.id] ?? null) : null)
   const teams = data.teams.filter((t) => choices.teamKeys[t.id])
@@ -233,12 +236,15 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
 
   // issues: keep numbers unless the team here already used one for something else
   const issuesByLinear = byLinearId(Object.values(ws.issues))
+  // issues archived here since an earlier import stay as they are
+  const archived = Object.values(ws.archive ?? {}).filter((a) => !ws.issues[a.id])
+  const archivedByLinear = byLinearId(archived)
   const order = orderKeys(issues)
-  const idOf = new Map(issues.map((i) => [i.id, issuesByLinear.get(i.id)?.id ?? newId()]))
+  const idOf = new Map(issues.map((i) => [i.id, issuesByLinear.get(i.id)?.id ?? archivedByLinear.get(i.id)?.id ?? newId()]))
   const refs = new Set(issues.map((i) => `${keyOf(i.team)}-${i.number}`))
   const taken = new Map<string, Set<number>>()
-  for (const i of Object.values(ws.issues)) {
-    if (linearIdOf(i) && idOf.has(linearIdOf(i)!)) continue
+  for (const i of [...Object.values(ws.issues), ...archived]) {
+    if (linearIdOf(i) && idOf.has(linearIdOf(i)!) && !archivedByLinear.has(linearIdOf(i)!)) continue
     taken.set(i.team, (taken.get(i.team) ?? new Set()).add(i.number))
   }
   const highest = new Map<string, number>()
@@ -248,6 +254,7 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
   for (const li of issues) raise(issuesByLinear.get(li.id)?.team ?? keyOf(li.team), li.number)
   const plan: { li: LIssue; team: string; number: number }[] = []
   for (const li of [...issues].sort((a, b) => a.number - b.number)) {
+    if (archivedByLinear.has(li.id)) continue
     const old = issuesByLinear.get(li.id)
     const team = old?.team ?? keyOf(li.team)
     const used = taken.get(team) ?? new Set<number>()
@@ -263,6 +270,15 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
     plan.push({ li, team, number })
   }
   const pathOfIssue = new Map<string, Issue>()
+  // new issues finished longer ago than their team keeps finished issues go straight into the archive
+  const toArchive = new Map<string, ArchivedIssue>()
+  const archiveBefore = (team: string) => {
+    const months = ws.teams[team]?.autoArchive ?? AUTO_ARCHIVE_MONTHS
+    if (!months) return null
+    const d = new Date(now)
+    d.setMonth(d.getMonth() - months)
+    return Number.isNaN(d.getTime()) ? null : d.toISOString()
+  }
   for (const { li, team, number } of plan) {
     const old = issuesByLinear.get(li.id)
     const issue: Issue & { linearId: string } = {
@@ -287,7 +303,11 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
       completedAt: li.completedAt ?? li.canceledAt ?? null,
       linearId: li.id,
     }
-    files.set(paths.issue(issue), issueToFile(issue))
+    const before = archiveBefore(team)
+    if (!old && before && ['done', 'canceled', 'duplicate'].includes(issue.status) && (issue.completedAt ?? issue.updatedAt) < before) {
+      toArchive.set(issue.id, { ...issue, archivedAt: now, archivedBy: ws.me, comments: [] })
+      counts.archived++
+    } else files.set(paths.issue(issue), issueToFile(issue))
     pathOfIssue.set(li.id, issue)
     counts.issues++
   }
@@ -309,9 +329,22 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
       body: author ? body : `*From Linear: ${c.user?.name ?? 'someone'}*\n\n${body}`,
       linearId: c.id,
     }
-    files.set(paths.comment(issue.team, comment), commentToFile(comment))
+    const record = toArchive.get(issue.id)
+    if (record) record.comments.push(comment)
+    else files.set(paths.comment(issue.team, comment), commentToFile(comment))
     counts.comments++
   }
+
+  // archived issues, one file per team and month, next to what those files hold already
+  const byFile = new Map<string, ArchivedIssue[]>()
+  const into = (a: ArchivedIssue) => {
+    const path = paths.archive(a.team, archiveMonth(a, a.archivedAt))
+    byFile.set(path, [...(byFile.get(path) ?? []), a])
+  }
+  toArchive.forEach(into)
+  const touched = new Set(byFile.keys())
+  for (const a of archived) if (touched.has(paths.archive(a.team, archiveMonth(a, a.archivedAt)))) into(a)
+  for (const [path, records] of byFile) files.set(path, archiveToFile(records))
 
   return { files, counts, renumbered }
 }

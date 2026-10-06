@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'wouter'
 import { Loader2 } from 'lucide-react'
 import { GitHubError, isOffline, listPeople, plainError, repoKey } from '@/github/api'
-import { introduceMe, tidyInbox } from '@/data/actions'
+import { introduceMe, tidyArchive, tidyInbox } from '@/data/actions'
 import { setCollaborators } from '@/data/project'
 import { useData } from '@/data/store'
 import { JoinWizard } from '@/features/onboarding/JoinWizard'
@@ -68,6 +68,22 @@ function Loader({ children }: { children: ReactNode }) {
     introduceMe(user)
     tidyInbox()
   }, [load.state, hasWorkspaceFile, user])
+
+  // once a day, after the first sync: archive issues finished long ago (actions.tidyArchive)
+  useEffect(() => {
+    if (load.state !== 'ready' || !hasWorkspaceFile || !repo) return
+    const key = `sprawniej:archived:${repoKey(repo)}`
+    const run = () => {
+      const last = Number(localStorage.getItem(key) ?? 0)
+      if (Date.now() - last < 20 * 3_600_000) return true
+      localStorage.setItem(key, String(Date.now()))
+      void tidyArchive()
+      return true
+    }
+    if (useSync.getState().state === 'saved' && run()) return
+    const stop = useSync.subscribe((s) => s.state === 'saved' && run() && stop())
+    return stop
+  }, [load.state, hasWorkspaceFile, repo])
 
   if (load.state === 'loading') {
     return (

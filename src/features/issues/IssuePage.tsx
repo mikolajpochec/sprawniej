@@ -5,17 +5,18 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'wouter'
 import { useShallow } from 'zustand/react/shallow'
-import { Bell, BellOff, Link2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Archive, Bell, BellOff, Link2, MoreHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCrumbs } from '@/app/chrome'
 import { NotFound } from '@/app/NotFound'
 import { PersonAvatar } from '@/components/Avatar'
 import { LabelChip } from '@/components/LabelChip'
 import { Picker, type PickerItem } from '@/components/Picker'
-import { createLabel, deleteIssue, markRead, moveIssueToTeam, setFollowers, subscribe, updateIssue } from '@/data/actions'
+import { archiveIssues, createLabel, deleteIssue, markRead, moveIssueToTeam, setFollowers, subscribe, updateIssue } from '@/data/actions'
 import { followers } from '@/data/notify'
 import { isClosed, isUnread } from '@/data/select'
-import { findByRef, issueRef, useData } from '@/data/store'
+import { loadArchive } from '@/data/project'
+import { findArchivedByRef, findByRef, issueRef, useData } from '@/data/store'
 import { Editor } from '@/editor/LazyEditor'
 import { useMedia } from '@/lib/useNarrow'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { PriorityIcon, StatusIcon } from './icons'
+import { ArchivedIssuePage } from './ArchivedIssuePage'
 import { Comments } from './Comments'
 import { DueChip, DueDatePicker, EstimateIcon } from './DueDate'
 import { estimateName, shortDate } from './format'
@@ -48,7 +50,14 @@ export function IssuePage() {
   const { ref = '' } = useParams<{ ref: string }>()
   const [, navigate] = useLocation()
   const issue = useData((s) => findByRef(s.issues, ref))
-  const team = useData((s) => (issue ? s.teams[issue.team] : undefined))
+  const archived = useData((s) => (issue ? undefined : findArchivedByRef(s, ref)))
+  const archiveLoaded = useData((s) => s.archiveLoaded)
+  // not an active issue: maybe an archived one (read only when needed)
+  useEffect(() => {
+    if (!issue && !archiveLoaded) loadArchive()
+  }, [issue, archiveLoaded])
+  const shown = issue ?? archived
+  const team = useData((s) => (shown ? s.teams[shown.team] : undefined))
   const teams = useData(useShallow((s) => Object.values(s.teams)))
   const people = useData((s) => s.people)
   const labels = useData((s) => s.labels)
@@ -71,8 +80,8 @@ export function IssuePage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // under 1024 px the properties sit under the title instead of in a column of their own
   const stacked = useMedia('(max-width: 1023px)')
-  useCrumbs(issue && team ? [{ label: `${team.emoji} ${team.name}`, href: `/team/${team.key}/issues` }, { label: issueRef(issue) }] : [])
-  if (!issue) return <NotFound />
+  useCrumbs(shown && team ? [{ label: `${team.emoji} ${team.name}`, href: `/team/${team.key}/issues` }, { label: issueRef(shown) }] : [])
+  if (!issue) return archived ? <ArchivedIssuePage issue={archived} /> : archiveLoaded ? <NotFound /> : null
   const assignee = issue.assignee ? people[issue.assignee] : undefined
 
   const properties = (
@@ -245,6 +254,16 @@ export function IssuePage() {
                   }}
                 >
                   <Link2 /> Copy link
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    const n = archiveIssues([issue.id])
+                    toast(`Archived ${issueRef(issue)}${n > 1 ? ` and ${n - 1} sub-issue${n > 2 ? 's' : ''}` : ''}`, {
+                      description: 'It’s out of every list. You can still open it from here or from search.',
+                    })
+                  }}
+                >
+                  <Archive /> Archive
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>

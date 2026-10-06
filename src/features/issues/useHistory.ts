@@ -27,7 +27,9 @@ async function load(issue: Issue, latest: boolean): Promise<HistoryEvent[]> {
   // follow the issue back through moves between teams (a few at most)
   for (let hop = 0; hop < 4; hop++) {
     let found = (await ws.history(path)).map((v) => ({ ...v, path }))
-    for (let retry = 0; latest && hop === 0 && retry < 4 && savedAt(found[0]?.text) !== issue.updatedAt; retry++) {
+    // an archived issue's newest save is the one that took its file away
+    const isNewest = (v: Version | undefined) => ('archivedAt' in issue ? v?.text === null : savedAt(v?.text) === issue.updatedAt)
+    for (let retry = 0; latest && hop === 0 && retry < 4 && !isNewest(found[0]); retry++) {
       await wait(1500 * (retry + 1))
       found = (await ws.history(path)).map((v) => ({ ...v, path }))
     }
@@ -50,7 +52,9 @@ export function useIssueHistory(issue: Issue): { events: HistoryEvent[] | null; 
   useEffect(() => {
     latest.current = issue
   })
-  const { id, updatedAt } = issue
+  const { id } = issue
+  // archiving and restoring are saves too, though "last changed" stays
+  const updatedAt = `${issue.updatedAt}${'archivedAt' in issue ? ' archived' : ''}`
   useEffect(() => {
     const known = cache.get(id)
     if (known && known.updatedAt === updatedAt && known.complete) return

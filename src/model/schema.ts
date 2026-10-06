@@ -45,6 +45,9 @@ export const labelSchema = z
   .passthrough()
 export type Label = z.infer<typeof labelSchema>
 
+/** months after which finished issues are archived, unless a team says otherwise (team.autoArchive) */
+export const AUTO_ARCHIVE_MONTHS = 6
+
 /** teams/<KEY>/team.json */
 export const teamSchema = z
   .object({
@@ -53,8 +56,10 @@ export const teamSchema = z
     emoji: z.string(),
     members: z.array(login),
     createdAt: iso,
-    /** the highest number a deleted or moved-away issue had, so numbers are never given out twice */
+    /** the highest number a deleted, moved-away or archived issue had, so numbers are never given out twice */
     lastNumber: z.number().int().optional(),
+    /** finished issues are archived this many months after they were finished; 0 = never; missing = 6 */
+    autoArchive: z.number().int().nonnegative().optional(),
   })
   .passthrough()
 export type Team = z.infer<typeof teamSchema>
@@ -111,6 +116,24 @@ export interface Comment extends z.infer<typeof commentFieldsSchema> {
   body: string
 }
 
+/**
+ * One line of teams/<KEY>/archive/<YYYY-MM>.jsonl: an archived issue with its description and comments, packed
+ * together so old issues cost one small part of one file instead of a file each.
+ */
+export const archivedIssueSchema = issueFieldsSchema
+  .extend({
+    description: z.string(),
+    archivedAt: iso,
+    archivedBy: login,
+    comments: z.array(commentFieldsSchema.extend({ body: z.string() }).passthrough()),
+  })
+  .passthrough()
+export interface ArchivedIssue extends Issue {
+  archivedAt: string
+  archivedBy: string
+  comments: Comment[]
+}
+
 export const PROJECT_STATUSES = ['backlog', 'planned', 'in_progress', 'paused', 'completed', 'canceled'] as const
 
 /** projects/<id>.json */
@@ -153,8 +176,6 @@ export const displaySchema = z
     ordering: z.enum(ORDERINGS),
     showCompleted: z.boolean(),
     showSubIssues: z.boolean(),
-    /** board columns someone hid (group keys); they wait under "Hidden columns" */
-    hiddenColumns: z.array(z.string()).optional(),
   })
   .passthrough()
 export type Display = z.infer<typeof displaySchema>

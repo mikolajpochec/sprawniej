@@ -56,16 +56,14 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
   const all = useData(useShallow((s) => Object.values(s.issues)))
   const people = useData((s) => s.people)
   const projects = useData((s) => s.projects)
-  const shown = useMemo(() => all.filter((i) => matches(i, filters) && matches(i, extra) && inTab(i, tab)), [all, filters, extra, tab])
+  // issues dropped on the board into a status this tab leaves out (Done on Active) stay in view until you leave
+  const [kept, setKept] = useState<ReadonlySet<string>>(new Set())
+  const keep = (ids: string[]) => setKept((k) => new Set([...k, ...ids]))
+  const shown = useMemo(() => all.filter((i) => matches(i, filters) && matches(i, extra) && (inTab(i, tab) || kept.has(i.id))), [all, filters, extra, tab, kept])
   const board = display.layout === 'board'
   // on a team's page, a board offers only that team's projects as places to drop
   const team = filters.teams?.length === 1 ? filters.teams[0] : undefined
-  const groups = useMemo(() => groupIssues(shown, display, { people, projects, team }, tab, board), [shown, display, people, projects, tab, board, team])
-  /** hide a board column, or show it again */
-  const hideColumn = (key: string, hide: boolean) => {
-    const now = display.hiddenColumns ?? []
-    setDisplay({ hiddenColumns: hide ? [...new Set([...now, key])] : now.filter((k) => k !== key) })
-  }
+  const groups = useMemo(() => groupIssues(shown, display, { people, projects, team, keep: kept }, tab, board), [shown, display, people, projects, tab, board, team, kept])
   const filtering = activeFilters(extra) > 0
 
   /** "+" on a group: a new issue that already belongs in that group (and on this page) */
@@ -143,7 +141,7 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
         </div>
       ) : (
         <div className="min-h-0 flex-1" data-tour="issues">
-          <IssueBoard groups={groups} display={display} onAdd={addTo} onHide={hideColumn} />
+          <IssueBoard groups={groups} display={display} onAdd={addTo} onDrop={keep} />
         </div>
       )}
       {saving && (

@@ -263,11 +263,18 @@ export async function compare(token: string, r: RepoRef, base: string, head: str
   return c.files
 }
 
-/** Download file contents by blob sha, up to 100 per request (GraphQL). Binary files come back as base64 via REST. */
+/** how many requests for file contents run at once on a first download */
+const AT_ONCE = 4
+
+/**
+ * Download file contents by blob sha, 100 per request (GraphQL), a few requests at once. Binary files come back as
+ * base64 via REST; so does text GitHub cuts short in GraphQL (a big archive month), which is then decoded.
+ */
 export async function getBlobs(token: string, r: RepoRef, shas: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
-  for (let i = 0; i < shas.length; i += 100) {
-    const chunk = shas.slice(i, i + 100)
+  const chunks: string[][] = []
+  for (let i = 0; i < shas.length; i += 100) chunks.push(shas.slice(i, i + 100))
+  const one = async (chunk: string[]) => {
     const fields = chunk.map((sha, j) => `b${j}: object(oid: "${sha}") { ... on Blob { text isBinary isTruncated } }`).join('\n')
     const query = `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { ${fields} } }`
     const { data } = await request<{ data?: { repository: Record<string, { text: string | null; isBinary: boolean; isTruncated: boolean } | null> }; errors?: { message: string }[] }>(
@@ -280,9 +287,11 @@ export async function getBlobs(token: string, r: RepoRef, shas: string[]): Promi
     for (const [j, sha] of chunk.entries()) {
       const b = data.data.repository[`b${j}`]
       if (b && !b.isBinary && !b.isTruncated && b.text !== null) out.set(sha, b.text)
+      else if (b && !b.isBinary) out.set(sha, await getBlobText(token, r, sha))
       else out.set(sha, await getBlobBase64(token, r, sha))
     }
   }
+  for (let i = 0; i < chunks.length; i += AT_ONCE) await Promise.all(chunks.slice(i, i + AT_ONCE).map(one))
   return out
 }
 
@@ -327,6 +336,15 @@ async function getBlobBase64(token: string, r: RepoRef, sha: string): Promise<st
   return BINARY_PREFIX + b.content.replace(/\s/g, '')
 }
 
+/** a text file too big for GraphQL, as text */
+async function getBlobText(token: string, r: RepoRef, sha: string): Promise<string> {
+  const b64 = (await getBlobBase64(token, r, sha)).slice(BINARY_PREFIX.length)
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new TextDecoder().decode(bytes)
+}
+
 export interface NewTreeEntry {
   path: string
   /** text content, or null to delete the file */
@@ -334,6 +352,8 @@ export interface NewTreeEntry {
 }
 
 /** One new tree: `base` plus these changes. Binary files (BINARY_PREFIX) are uploaded first. */
+const BIG_TEXT = 256 * 1024
+
 export async function createTree(token: string, r: RepoRef, baseTree: string | null, entries: NewTreeEntry[]): Promise<string> {
   const tree = []
   for (const e of entries) {
@@ -342,6 +362,10 @@ export async function createTree(token: string, r: RepoRef, baseTree: string | n
       const { data } = await request<{ sha: string }>(token, 'POST', `/repos/${r.owner}/${r.repo}/git/blobs`, {
         body: { content: e.content.slice(BINARY_PREFIX.length), encoding: 'base64' },
       })
+      tree.push({ path: e.path, mode: '100644', type: 'blob', sha: data.sha })
+    } else if (e.content.length > BIG_TEXT) {
+      // a big file (an archive month) goes up on its own, so one save never becomes one huge request
+      const { data } = await request<{ sha: string }>(token, 'POST', `/repos/${r.owner}/${r.repo}/git/blobs`, { body: { content: e.content, encoding: 'utf-8' } })
       tree.push({ path: e.path, mode: '100644', type: 'blob', sha: data.sha })
     } else tree.push({ path: e.path, mode: '100644', type: 'blob', content: e.content })
   }

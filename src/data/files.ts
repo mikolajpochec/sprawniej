@@ -5,6 +5,7 @@
 import YAML from 'yaml'
 import type { z } from 'zod'
 import {
+  archivedIssueSchema,
   commentFieldsSchema,
   inboxItemSchema,
   issueFieldsSchema,
@@ -15,6 +16,7 @@ import {
   teamSchema,
   viewSchema,
   workspaceSchema,
+  type ArchivedIssue,
   type Comment,
   type InboxItem,
   type Issue,
@@ -35,6 +37,8 @@ export const paths = {
   label: (id: string) => `labels/${id}.json`,
   team: (key: string) => `teams/${key}/team.json`,
   issue: (i: Pick<Issue, 'team' | 'id'>) => `teams/${i.team}/issues/${i.id}.md`,
+  /** archived issues of a team, one file per month (see archiveMonth) */
+  archive: (team: string, month: string) => `teams/${team}/archive/${month}.jsonl`,
   comment: (team: string, c: Pick<Comment, 'issue' | 'id'>) => `teams/${team}/comments/${c.issue}/${c.id}.md`,
   project: (id: string) => `projects/${id}.json`,
   view: (id: string) => `views/${id}.json`,
@@ -49,6 +53,7 @@ export type Parsed =
   | { kind: 'label'; value: Label }
   | { kind: 'team'; value: Team }
   | { kind: 'issue'; value: Issue }
+  | { kind: 'archive'; team: string; value: ArchivedIssue[] }
   | { kind: 'comment'; team: string; value: Comment }
   | { kind: 'project'; value: Project }
   | { kind: 'view'; value: View }
@@ -63,6 +68,7 @@ export function classify(path: string): { kind: Parsed['kind']; parts: string[] 
     [/^labels\/([^/]+)\.json$/, 'label'],
     [/^teams\/([^/]+)\/team\.json$/, 'team'],
     [/^teams\/([^/]+)\/issues\/([^/]+)\.md$/, 'issue'],
+    [/^teams\/([^/]+)\/archive\/([^/]+)\.jsonl$/, 'archive'],
     [/^teams\/([^/]+)\/comments\/([^/]+)\/([^/]+)\.md$/, 'comment'],
     [/^projects\/([^/]+)\.json$/, 'project'],
     [/^views\/([^/]+)\.json$/, 'view'],
@@ -182,6 +188,51 @@ export function commentToFile(c: Comment): string {
 
 export const jsonToFile = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`
 
+// ---------- the archive ----------
+
+/**
+ * Which month file an archived issue goes in: the month it was finished (so archiving the same issue on two
+ * computers picks the same file), or for an issue archived unfinished, the month it was archived.
+ */
+export function archiveMonth(issue: Pick<Issue, 'status' | 'completedAt' | 'updatedAt'>, archivedAt: string): string {
+  const closed = ['done', 'canceled', 'duplicate'].includes(issue.status)
+  return (closed ? (issue.completedAt ?? issue.updatedAt) : archivedAt).slice(0, 7)
+}
+
+/** one archived issue as a line: its fields in the usual order, then the description and comments */
+export function archivedToLine(a: ArchivedIssue): string {
+  const { description, comments, archivedAt, archivedBy, ...rest } = a
+  const fields = ordered(rest, ISSUE_ORDER, ['team'])
+  return JSON.stringify({
+    ...fields,
+    description,
+    archivedAt,
+    archivedBy,
+    comments: comments.map((c) => ordered(c as unknown as Record<string, unknown>, ['id', 'issue', 'author', 'createdAt', 'editedAt', 'body'])),
+  })
+}
+
+/** a month file: one issue per line, sorted by id, so files change little and read well side by side */
+export function archiveToFile(records: ArchivedIssue[]): string | null {
+  if (!records.length) return null
+  return `${[...records].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).map(archivedToLine).join('\n')}\n`
+}
+
+/** Read a month file. A line that can't be read is skipped with a warning; the rest still count. */
+export function parseArchive(path: string, team: string, text: string): ArchivedIssue[] {
+  const out: ArchivedIssue[] = []
+  for (const [n, line] of text.split('\n').entries()) {
+    if (!line.trim()) continue
+    try {
+      const v = check(archivedIssueSchema, JSON.parse(line), `${path} line ${n + 1}`)
+      out.push({ ...v, team, description: v.description.replace(/\s+$/, ''), comments: v.comments.map((c) => ({ ...c, body: c.body.replace(/\s+$/, '') })) })
+    } catch (e) {
+      console.warn(`Sprawniej skipped an archived issue it couldn't read: ${(e as Error).message}`)
+    }
+  }
+  return out
+}
+
 // ---------- parsing ----------
 
 function check<T>(schema: z.ZodType<T>, value: unknown, path: string): T {
@@ -209,6 +260,8 @@ export function parseFile(path: string, text: string): Parsed | null {
       const f = check(issueFieldsSchema, fields, path)
       return { kind: 'issue', value: { ...f, team: c.parts[0], description: body.replace(/\s+$/, '') } }
     }
+    case 'archive':
+      return { kind: 'archive', team: c.parts[0], value: parseArchive(path, c.parts[0], text) }
     case 'comment': {
       const { fields, body } = splitFrontMatter(text)
       return { kind: 'comment', team: c.parts[0], value: { ...check(commentFieldsSchema, fields, path), body: body.replace(/\s+$/, '') } }

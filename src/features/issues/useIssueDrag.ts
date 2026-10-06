@@ -44,16 +44,13 @@ function baseOrder(groups: Group[], nest: boolean): Record<string, string[]> {
 }
 
 /**
- * `nest`: sub-issues sit under their parent (list). `park`: empty, hidden and left-out groups are shown apart (the
- * board's hidden columns); dropping on one moves the issue there, but nothing moves on screen while you hover it.
+ * `nest`: sub-issues sit under their parent (list). `park`: empty groups are shown apart (the board's hidden
+ * columns); dropping on one moves the issue there, but nothing moves on screen while you hover it. `onDrop` hears
+ * which issues were dropped, so the page can keep showing them.
  */
-export function useIssueDrag(groups: Group[], display: Display, { nest = false, park = false } = {}) {
+export function useIssueDrag(groups: Group[], display: Display, { nest = false, park = false, onDrop }: { nest?: boolean; park?: boolean; onDrop?: (ids: string[]) => void } = {}) {
   const base = useMemo(() => baseOrder(groups, nest), [groups, nest])
-  const hidden = display.hiddenColumns
-  const parked = useMemo(
-    () => new Set(park ? groups.filter((g) => g.issues.length === 0 || g.outside || hidden?.includes(g.key)).map((g) => g.key) : []),
-    [groups, park, hidden],
-  )
+  const parked = useMemo(() => new Set(park ? groups.filter((g) => g.issues.length === 0).map((g) => g.key) : []), [groups, park])
   const issues = useMemo(() => new Map(groups.flatMap((g) => g.issues.map((i) => [i.id, i] as const))), [groups])
   /** only while dragging: the order on screen */
   const [live, setLive] = useState<Record<string, string[]> | null>(null)
@@ -195,6 +192,7 @@ export function useIssueDrag(groups: Group[], display: Display, { nest = false, 
       }
       // a hidden column keeps the issue's place: there are no neighbours to see there
       const near = manual && !onParked ? neighbours(ids, id, parentHere) : null
+      onDrop?.([id, ...others])
       if (others.length) moveIssues([id, ...others], { patch: groupChange, place: near })
       else moveIssue(id, { patch, place: near })
     }

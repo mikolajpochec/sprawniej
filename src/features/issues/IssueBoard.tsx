@@ -1,11 +1,11 @@
 /**
- * Issues as cards in columns, one column per group. Cards can be dragged within and between columns. Columns you
- * hid, empty ones, and statuses this page leaves out (Done on the Active tab) wait under "Hidden columns" at the
- * end; drop a card on one to move it there.
+ * Issues as cards in columns, one column per group. Cards can be dragged within and between columns. Empty columns,
+ * including statuses this page leaves out (Done on the Active tab), wait under "Hidden columns" at the end; drop a
+ * card on one and it becomes a column with that card in it.
  */
 import { useState, type CSSProperties, type HTMLAttributes, type Ref } from 'react'
 import { Link } from 'wouter'
-import { ChevronDown, Eye, EyeOff, Plus } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -97,32 +97,19 @@ function SortableCard({ issue }: { issue: Issue }) {
 
 const iconButton = 'rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground'
 
-function Column({ group, ids, issueOf, onAdd, onHide }: { group: Group; ids: string[]; issueOf: (id: string) => Issue | undefined; onAdd?: (group: Group) => void; onHide?: () => void }) {
+function Column({ group, ids, issueOf, onAdd }: { group: Group; ids: string[]; issueOf: (id: string) => Issue | undefined; onAdd?: (group: Group) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: groupDropId(group.key) })
   return (
-    <section ref={setNodeRef} className={cn('group/column flex w-[21rem] shrink-0 flex-col rounded-xl bg-accent/30 transition-colors', isOver && 'bg-accent/50')}>
+    <section ref={setNodeRef} className={cn('flex w-[21rem] shrink-0 flex-col rounded-xl bg-accent/30 transition-colors', isOver && 'bg-accent/50')}>
       <header className="flex h-12 items-center gap-2.5 px-4 text-[15px] font-medium">
         <GroupIcon group={group} />
         {group.title}
         <span className="font-normal text-muted-foreground tabular-nums">{ids.length}</span>
-        <span className="ml-auto flex items-center gap-0.5">
-          {onHide && (
-            <button
-              type="button"
-              onClick={onHide}
-              className={cn(iconButton, 'opacity-0 group-hover/column:opacity-100 focus-visible:opacity-100')}
-              aria-label={`Hide the ${group.title} column`}
-              title="Hide column"
-            >
-              <EyeOff className="size-4" />
-            </button>
-          )}
-          {onAdd && (
-            <button type="button" onClick={() => onAdd(group)} className={iconButton} aria-label={`New issue in ${group.title}`}>
-              <Plus className="size-4" />
-            </button>
-          )}
-        </span>
+        {onAdd && (
+          <button type="button" onClick={() => onAdd(group)} className={cn(iconButton, 'ml-auto')} aria-label={`New issue in ${group.title}`}>
+            <Plus className="size-4" />
+          </button>
+        )}
       </header>
       <SortableContext id={group.key} items={ids} strategy={verticalListSortingStrategy}>
         <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
@@ -136,35 +123,26 @@ function Column({ group, ids, issueOf, onAdd, onHide }: { group: Group; ids: str
   )
 }
 
-/** a parked group: somewhere to drop a card. Columns you hid can be shown again from here. */
-function HiddenColumn({ group, hidden, onAdd, onShow }: { group: Group; hidden: boolean; onAdd?: (group: Group) => void; onShow?: () => void }) {
+/** an empty group: somewhere to drop a card */
+function HiddenColumn({ group, onAdd }: { group: Group; onAdd?: (group: Group) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: groupDropId(group.key) })
   return (
     <div
       ref={setNodeRef}
-      className={cn('group flex h-12 items-center gap-2.5 rounded-lg border bg-card/60 px-4 text-[15px] transition-colors', isOver && 'border-ring bg-accent')}
+      className={cn('group flex h-12 shrink-0 items-center gap-2.5 rounded-lg border bg-card/60 px-4 text-[15px] transition-colors', isOver && 'border-ring bg-accent')}
     >
       <GroupIcon group={group} />
       <span className="truncate">{group.title}</span>
-      <span className="ml-auto flex items-center gap-0.5">
-        {hidden && onShow && (
-          <button type="button" onClick={onShow} className={cn(iconButton, 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100')} aria-label={`Show the ${group.title} column`} title="Show column">
-            <Eye className="size-4" />
-          </button>
-        )}
-        {onAdd && !group.outside && (
-          <button type="button" onClick={() => onAdd(group)} className={cn(iconButton, 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100')} aria-label={`New issue in ${group.title}`}>
-            <Plus className="size-4" />
-          </button>
-        )}
-      </span>
-      {/* a status this page leaves out has issues elsewhere, not here: no count */}
-      {!group.outside && <span className="w-5 text-right text-muted-foreground tabular-nums">{group.issues.length}</span>}
+      {onAdd && !group.outside && (
+        <button type="button" onClick={() => onAdd(group)} className={cn(iconButton, 'ml-auto opacity-0 group-hover:opacity-100 focus-visible:opacity-100')} aria-label={`New issue in ${group.title}`}>
+          <Plus className="size-4" />
+        </button>
+      )}
     </div>
   )
 }
 
-function HiddenColumns({ groups, hidden, onAdd, onHide }: { groups: Group[]; hidden: string[]; onAdd?: (group: Group) => void; onHide?: (key: string, hide: boolean) => void }) {
+function HiddenColumns({ groups, onAdd }: { groups: Group[]; onAdd?: (group: Group) => void }) {
   const [open, setOpen] = useState(true)
   return (
     <section className="flex w-72 shrink-0 flex-col gap-2 overflow-y-auto pb-2" aria-label="Hidden columns">
@@ -173,32 +151,26 @@ function HiddenColumns({ groups, hidden, onAdd, onHide }: { groups: Group[]; hid
         Hidden columns
         {!open && <span className="tabular-nums">{groups.length}</span>}
       </button>
-      {open &&
-        groups.map((g) => (
-          <HiddenColumn key={g.key} group={g} hidden={hidden.includes(g.key)} onAdd={onAdd} onShow={onHide && (() => onHide(g.key, false))} />
-        ))}
+      {open && groups.map((g) => <HiddenColumn key={g.key} group={g} onAdd={onAdd} />)}
     </section>
   )
 }
 
-export function IssueBoard({ groups, display, onAdd, onHide }: { groups: Group[]; display: Display; onAdd?: (group: Group) => void; onHide?: (key: string, hide: boolean) => void }) {
-  const drag = useIssueDrag(groups, display, { park: true })
+export function IssueBoard({ groups, display, onAdd, onDrop }: { groups: Group[]; display: Display; onAdd?: (group: Group) => void; onDrop?: (ids: string[]) => void }) {
+  const drag = useIssueDrag(groups, display, { park: true, onDrop })
   const active = drag.activeId ? drag.issue(drag.activeId) : undefined
   const issues = useData((s) => s.issues)
-  const hidden = display.hiddenColumns ?? []
-  // columns you hid first, then empty ones, then what this page leaves out
-  const parked = groups.filter((g) => drag.parked.has(g.key))
-  const rank = (g: Group) => (hidden.includes(g.key) ? 0 : g.outside ? 2 : 1)
-  parked.sort((a, b) => rank(a) - rank(b))
+  // the page's own statuses first, then what it leaves out
+  const parked = groups.filter((g) => drag.parked.has(g.key)).sort((a, b) => Number(!!a.outside) - Number(!!b.outside))
   return (
     <DndContext {...drag.dnd} autoScroll={AUTO_SCROLL} accessibility={{ announcements: dragAnnouncements(issues, groups, drag.order) }}>
       <div className="flex h-full gap-4 overflow-x-auto pb-4" onClickCapture={(e) => drag.justDropped() && e.preventDefault()}>
         {groups
           .filter((g) => !drag.parked.has(g.key))
           .map((g) => (
-            <Column key={g.key} group={g} ids={drag.order[g.key] ?? []} issueOf={drag.issue} onAdd={onAdd} onHide={onHide && (() => onHide(g.key, true))} />
+            <Column key={g.key} group={g} ids={drag.order[g.key] ?? []} issueOf={drag.issue} onAdd={onAdd} />
           ))}
-        {parked.length > 0 && <HiddenColumns groups={parked} hidden={hidden} onAdd={onAdd} onHide={onHide} />}
+        {parked.length > 0 && <HiddenColumns groups={parked} onAdd={onAdd} />}
       </div>
       <DragOverlay>
         {active && (

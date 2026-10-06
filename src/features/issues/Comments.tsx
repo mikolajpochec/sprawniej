@@ -11,7 +11,7 @@ import { Markdown } from '@/components/Markdown'
 import { createComment, deleteComment, updateComment } from '@/data/actions'
 import { useData } from '@/data/store'
 import { Editor } from '@/editor/LazyEditor'
-import type { Comment, Issue } from '@/model/schema'
+import type { ArchivedIssue, Comment, Issue } from '@/model/schema'
 import { Button } from '@/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { shortDate } from './format'
@@ -110,8 +110,10 @@ function NewComment({ issue }: { issue: string }) {
 }
 
 /** comments and history, oldest first, with the box for a new comment at the end */
-export function Comments({ issue }: { issue: Issue }) {
-  const comments = useData((s) => s.comments[issue.id])
+export function Comments({ issue, archived }: { issue: Issue; archived?: ArchivedIssue }) {
+  const live = useData((s) => s.comments[issue.id])
+  // an archived issue keeps its comments with it, and they can't change
+  const comments = archived ? archived.comments : live
   const me = useData((s) => s.me?.login)
   const history = useIssueHistory(issue)
   useEffect(() => {
@@ -123,7 +125,7 @@ export function Comments({ issue }: { issue: Issue }) {
     setTimeout(() => el.classList.remove('ring-2', 'ring-ring/60'), 1600)
   }, [issue.id])
   const items = [
-    ...(comments ?? []).map((c) => ({ at: c.createdAt, key: c.id, node: <CommentItem key={c.id} comment={c} mine={c.author === me} /> })),
+    ...(comments ?? []).map((c) => ({ at: c.createdAt, key: c.id, node: <CommentItem key={c.id} comment={c} mine={!archived && c.author === me} /> })),
     ...(history.events ?? []).map((e, n) => ({ at: e.at, key: `h${n}`, node: <HistoryLine key={`h${n}`} event={e} /> })),
   ].sort((a, b) => a.at.localeCompare(b.at))
   return (
@@ -134,7 +136,7 @@ export function Comments({ issue }: { issue: Issue }) {
         {items.map((i) => i.node)}
       </ol>
       {history.failed && <p className="mt-3 px-1 text-xs text-muted-foreground">Earlier changes show here when you’re online.</p>}
-      <NewComment key={issue.id} issue={issue.id} />
+      {!archived && <NewComment key={issue.id} issue={issue.id} />}
     </section>
   )
 }

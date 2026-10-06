@@ -2,12 +2,14 @@
  * Things that happened to you: assigned, mentioned, a comment or a status change on an issue you follow. Opening a note (or
  * its issue) marks it read. Old notes tidy themselves away (actions.tidyInbox).
  */
+import { useEffect } from 'react'
 import { useLocation } from 'wouter'
 import { Check, CheckCheck, Inbox, MoreHorizontal, Trash2, X } from 'lucide-react'
 import { useCrumbs } from '@/app/chrome'
 import { PersonAvatar } from '@/components/Avatar'
 import { EmptyState } from '@/components/EmptyState'
 import { deleteInboxItems, markAllRead, markRead } from '@/data/actions'
+import { loadArchive } from '@/data/project'
 import { isUnread } from '@/data/select'
 import { issueRef, useData } from '@/data/store'
 import { shortDate } from '@/features/issues/format'
@@ -43,7 +45,8 @@ function useWhat(n: InboxItem): string {
 
 function Note({ n, unread }: { n: InboxItem; unread: boolean }) {
   const [, navigate] = useLocation()
-  const issue = useData((s) => s.issues[n.issue])
+  // a note can be about an issue archived since
+  const issue = useData((s) => s.issues[n.issue] ?? s.archive[n.issue])
   const actor = useData((s) => s.people[n.actor])
   const what = useWhat(n)
   const open = () => {
@@ -106,6 +109,10 @@ function Note({ n, unread }: { n: InboxItem; unread: boolean }) {
 export function InboxPage() {
   const inbox = useData((s) => s.inbox)
   const read = useData((s) => s.readState)
+  const gone = useData((s) => s.inbox.some((n) => !s.issues[n.issue]))
+  useEffect(() => {
+    if (gone) loadArchive()
+  }, [gone])
   useCrumbs([{ label: 'Inbox' }])
   const unread = inbox.filter((n) => isUnread(n, read)).length
 

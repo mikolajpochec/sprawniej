@@ -64,6 +64,8 @@ interface GroupCtx {
   projects: Record<string, Project>
   /** the page's team, if it has one: only its projects become extra groups */
   team?: string
+  /** issues shown even though the page would leave them out (just dropped on Done from the Active board) */
+  keep?: ReadonlySet<string>
 }
 
 /**
@@ -71,12 +73,12 @@ interface GroupCtx {
  * even empty ones, so there is somewhere to drop an issue.
  *
  * `everyGroup` (the board) adds a group for every other place an issue could go: statuses this tab leaves out
- * (marked `outside`), people with nothing assigned, open projects with nothing in them. The board shows them under
- * "Hidden columns" as places to drop a card.
+ * (marked `outside`), people with nothing assigned, open projects with nothing in them. The board shows empty ones
+ * under "Hidden columns" as places to drop a card; one that gets an issue becomes a column.
  */
 export function groupIssues(issues: Issue[], display: Display, ctx: GroupCtx, tab: IssueTab = 'all', everyGroup = false): Group[] {
   const sorted = issues
-    .filter((i) => (display.showCompleted || !isClosed(i)) && (display.showSubIssues || !i.parent))
+    .filter((i) => (display.showCompleted || !isClosed(i) || ctx.keep?.has(i.id)) && (display.showSubIssues || !i.parent))
     .sort(compareIssues(display.ordering))
   switch (display.grouping) {
     case 'none':
@@ -88,7 +90,7 @@ export function groupIssues(issues: Issue[], display: Display, ctx: GroupCtx, ta
         key: s.id,
         value: s.id,
         title: s.name,
-        issues: shown(s) ? sorted.filter((i) => i.status === s.id) : [],
+        issues: sorted.filter((i) => i.status === s.id),
         ...(!shown(s) && { outside: true }),
       }))
     }

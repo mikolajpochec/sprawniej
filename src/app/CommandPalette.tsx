@@ -2,10 +2,11 @@
  * ⌘K (Ctrl K): search issues by ID or title, jump to any page, team, view or project, or run an action.
  * We filter ourselves (not cmdk) so a workspace with thousands of issues stays quick: only the best matches show.
  */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'wouter'
 import { Box, CircleHelp, Download, Inbox, Layers, PanelLeft, Settings, SquarePen, SquareStack, User } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import { loadArchive } from '@/data/project'
 import { searchIssues } from '@/data/search'
 import { issueRef, useData } from '@/data/store'
 import { openComposer } from '@/features/issues/composer'
@@ -67,6 +68,13 @@ function Palette() {
 
   const q = query.trim().toLowerCase()
   const found = searchIssues(issues, query)
+  // archived issues are found too, after the active ones (the archive is read the first time you search)
+  const archive = useData((s) => s.archive)
+  useEffect(() => {
+    if (q) loadArchive()
+  }, [q])
+  const old = useMemo(() => Object.fromEntries(Object.entries(archive).filter(([id]) => !issues[id])), [archive, issues])
+  const foundOld = found.length < 12 ? searchIssues(old, query, Math.min(6, 12 - found.length)) : []
   const show = (list: Entry[]) => (q ? list.filter((e) => matches(e, q)) : list)
   const groups: [string, Entry[]][] = [
     ['Actions', show(actions)],
@@ -89,6 +97,17 @@ function Palette() {
               <CommandItem key={i.id} value={`issue-${i.id}`} onSelect={() => pick(go(`/issue/${issueRef(i)}`))}>
                 <StatusIcon status={i.status} />
                 <span className="w-16 shrink-0 text-muted-foreground tabular-nums">{issueRef(i)}</span>
+                <span className="truncate">{i.title}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {foundOld.length > 0 && (
+          <CommandGroup heading="Archived">
+            {foundOld.map((i) => (
+              <CommandItem key={i.id} value={`archived-${i.id}`} onSelect={() => pick(go(`/issue/${issueRef(i)}`))} className="text-muted-foreground">
+                <StatusIcon status={i.status} />
+                <span className="w-16 shrink-0 tabular-nums">{issueRef(i)}</span>
                 <span className="truncate">{i.title}</span>
               </CommandItem>
             ))}
