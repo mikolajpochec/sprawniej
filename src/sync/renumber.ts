@@ -26,8 +26,18 @@ export function renumber(base: Map<string, string>, pending: Map<string, string 
   const used = new Map<string, Set<number>>() // team → numbers taken by issues on GitHub
   const take = (team: string, n: number) => (used.get(team) ?? used.set(team, new Set()).get(team)!).add(n)
 
+  // numbers of deleted or moved-away issues, which are never given out again (team.json `lastNumber`)
+  const floor = new Map<string, number>()
   for (const [path, text] of base) {
     const c = classify(path)
+    if (c?.kind === 'team') {
+      try {
+        const n = (JSON.parse(pending.get(path) ?? text) as { lastNumber?: unknown }).lastNumber
+        if (typeof n === 'number') floor.set(c.parts[0], n)
+      } catch {
+        /* a broken team file: no floor */
+      }
+    }
     if (c?.kind !== 'issue') continue
     const latest = pending.has(path) ? pending.get(path) : text
     if (latest === null || latest === undefined) continue
@@ -52,7 +62,7 @@ export function renumber(base: Map<string, string>, pending: Map<string, string 
       take(f.team, f.parsed.number)
       continue
     }
-    const next = Math.max(0, ...taken) + 1
+    const next = Math.max(floor.get(f.team) ?? 0, ...taken) + 1
     take(f.team, next)
     out.push({ path: f.path, team: f.team, from: f.parsed.number, to: next, text: joinFrontMatter({ ...f.parsed.fields, number: next }, f.parsed.body) })
   }

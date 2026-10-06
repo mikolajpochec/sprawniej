@@ -5,7 +5,7 @@
  */
 import { useState, type ReactNode } from 'react'
 import { ArrowDown, Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
-import { checkKey, isBadKey, isOffline, MAKE_KEY_URL, toPerson } from '@/github/api'
+import { checkKey, isBadKey, isOffline, MAKE_KEY_URL, plainError, toPerson } from '@/github/api'
 import type { Person } from '@/model/schema'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
@@ -55,7 +55,7 @@ export function KeyPictures() {
 function explain(e: unknown): string {
   if (isBadKey(e)) return 'GitHub doesn’t recognise this key. Copy it again from GitHub; it starts with “ghp_”.'
   if (isOffline(e)) return 'You seem to be offline. Connect to the internet and try again.'
-  return `Something went wrong talking to GitHub: ${(e as Error).message}`
+  return plainError(e)
 }
 
 /** Calls `onDone` with the key and who it belongs to, once the key is good. */

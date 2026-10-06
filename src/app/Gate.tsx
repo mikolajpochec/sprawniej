@@ -5,7 +5,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'wouter'
 import { Loader2 } from 'lucide-react'
-import { GitHubError, isOffline, listPeople, repoKey } from '@/github/api'
+import { GitHubError, isOffline, listPeople, plainError, repoKey } from '@/github/api'
 import { introduceMe, tidyInbox } from '@/data/actions'
 import { setCollaborators } from '@/data/project'
 import { useData } from '@/data/store'
@@ -53,7 +53,7 @@ function Loader({ children }: { children: ReactNode }) {
         if (stop) return
         if (e instanceof GitHubError && e.status === 404) setLoad({ state: 'failed', noAccess: true, message: `You don't have access to ${repoKey(repo)}, or it doesn't exist.` })
         else if (isOffline(e)) setLoad({ state: 'failed', message: 'You seem to be offline, and this workspace hasn’t been opened on this device before.' })
-        else setLoad({ state: 'failed', message: (e as Error).message })
+        else setLoad({ state: 'failed', message: plainError(e) })
       },
     )
     return () => {

@@ -49,8 +49,12 @@ The folder name is the team key, which starts issue numbers (`ENG-12`). Keys are
 starting with a letter.
 
 ```json
-{ "key": "ENG", "name": "Engineering", "emoji": "🛠️", "members": ["mikolajpochec", "ania-k"], "createdAt": "…" }
+{ "key": "ENG", "name": "Engineering", "emoji": "🛠️", "members": ["mikolajpochec", "ania-k"], "createdAt": "…", "lastNumber": 41 }
 ```
+
+`lastNumber` (optional) is the highest number of an issue that was deleted or moved to another team. A new issue
+gets one more than the highest of all the team's issues and `lastNumber`, so a number is never given out twice and
+an old link never opens a different issue.
 
 ## teams/ENG/issues/01J9Z….md
 

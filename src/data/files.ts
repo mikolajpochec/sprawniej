@@ -84,7 +84,74 @@ export function splitFrontMatter(text: string): { fields: unknown; body: string 
   const end = t.indexOf('\n---', 4)
   if (end === -1) return { fields: {}, body: t }
   const after = t.indexOf('\n', end + 4)
-  return { fields: YAML.parse(t.slice(4, end + 1)) ?? {}, body: after === -1 ? '' : t.slice(after + 1) }
+  const yaml = t.slice(4, end + 1)
+  return { fields: quickYaml(yaml) ?? YAML.parse(yaml) ?? {}, body: after === -1 ? '' : t.slice(after + 1) }
+}
+
+const NUMBER = /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)?$/
+/** what YAML reads as a number in any spelling (01, +1, 1., 0x1F…); only the plain spelling above is quick */
+const NUMBERISH = /^([-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+|[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?)$/
+/** plain words YAML could read as something else, or that need its full rules */
+const TRICKY = /^([-?:,[\]{}#&*!|>'"%@`~]|\.|0[box]|[+-]?\.?(inf|nan)$)|: |:$| #|^(null|true|false|yes|no|on|off|y|n)$/i
+
+function scalar(raw: string): { v: unknown } | null {
+  if (raw === 'null' || raw === '~') return { v: null }
+  if (raw === 'true') return { v: true }
+  if (raw === 'false') return { v: false }
+  if (raw === '[]') return { v: [] }
+  if (NUMBER.test(raw)) return { v: Number(raw) }
+  if (NUMBERISH.test(raw)) return null
+  if (raw.startsWith('"') && raw.endsWith('"') && raw.length > 1) {
+    // JSON's escapes are the common part of YAML's; anything else goes to the full reader
+    if (/\\[^"\\/bfnrtu]/.test(raw)) return null
+    try {
+      return { v: JSON.parse(raw) }
+    } catch {
+      return null
+    }
+  }
+  if (raw.startsWith("'") && raw.endsWith("'") && raw.length > 1) {
+    const inner = raw.slice(1, -1)
+    return /'(?!')/.test(inner.replace(/''/g, '')) ? null : { v: inner.replace(/''/g, "'") }
+  }
+  if (!raw || TRICKY.test(raw) || raw !== raw.trim()) return null
+  return { v: raw }
+}
+
+/**
+ * A quick reader for the front matter this app writes: `key: value` lines and `- item` lists. Reading thousands of
+ * issues at start-up is several times faster this way. Returns null for anything else (folded text, nested maps,
+ * unusual quoting…), and then the full YAML reader takes over, so the result is always the same.
+ */
+export function quickYaml(yaml: string): Record<string, unknown> | null {
+  const out: Record<string, unknown> = {}
+  let list: unknown[] | null = null
+  for (const line of yaml.split('\n')) {
+    if (!line) continue
+    if (line.startsWith('  - ')) {
+      if (!list) return null
+      const item = scalar(line.slice(4))
+      if (!item || Array.isArray(item.v)) return null
+      list.push(item.v)
+      continue
+    }
+    list = null
+    const colon = line.indexOf(':')
+    if (colon < 1) return null
+    const key = line.slice(0, colon)
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || key in out) return null
+    const rest = line.slice(colon + 1)
+    if (rest === '') {
+      list = []
+      out[key] = list
+      continue
+    }
+    if (!rest.startsWith(' ')) return null
+    const v = scalar(rest.slice(1))
+    if (!v) return null
+    out[key] = v.v
+  }
+  return out
 }
 
 export function joinFrontMatter(fields: Record<string, unknown>, body: string): string {

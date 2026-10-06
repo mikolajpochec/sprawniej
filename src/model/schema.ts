@@ -53,6 +53,8 @@ export const teamSchema = z
     emoji: z.string(),
     members: z.array(login),
     createdAt: iso,
+    /** the highest number a deleted or moved-away issue had, so numbers are never given out twice */
+    lastNumber: z.number().int().optional(),
   })
   .passthrough()
 export type Team = z.infer<typeof teamSchema>

@@ -5,7 +5,7 @@
  */
 import { useMemo, useState, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Columns3, Layers, List, SearchX, SquareStack } from 'lucide-react'
+import { Columns3, Layers, List, Plus, SearchX, SquareStack } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { Segmented } from '@/components/Segmented'
 import { useDisplay } from '@/data/displays'
@@ -116,8 +116,16 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
           />
         ) : (
           (empty ?? (
-            <EmptyState icon={<SquareStack />} title="Nothing here">
-              No issues match this page right now.
+            <EmptyState
+              icon={<SquareStack />}
+              title="No issues here yet"
+              action={
+                <Button variant="outline" onClick={() => openComposer()}>
+                  <Plus /> New issue
+                </Button>
+              }
+            >
+              Issues that fit this page show up here by themselves.
             </EmptyState>
           ))
         )

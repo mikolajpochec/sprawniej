@@ -92,6 +92,13 @@ describe('renumbering', () => {
     const mine = at(14, 'mine')
     expect(renumber(new Map([[paths.issue(remote), file(remote)]]), new Map([[paths.issue(mine), file(mine)]]))).toEqual([])
   })
+  test("a clash never lands on a deleted issue's number", () => {
+    const remote = at(13, 'remote')
+    const mine = at(13, 'mine')
+    const team = JSON.stringify({ key: 'ENG', name: 'Eng', emoji: 'x', members: [], createdAt: '', lastNumber: 20 })
+    const r = renumber(new Map([[paths.issue(remote), file(remote)], ['teams/ENG/team.json', team]]), new Map([[paths.issue(mine), file(mine)]]))
+    expect(r[0].to).toBe(21)
+  })
   test('two of our own new issues with the same number: the newer one moves', () => {
     const a = at(5, 'a', '2026-10-07T01:00:00.000Z')
     const b = at(5, 'b', '2026-10-07T02:00:00.000Z')

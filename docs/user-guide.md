@@ -53,8 +53,8 @@ An **issue** is one piece of work: a task, a bug, an idea. Each has a short ID l
 ### Working at the same time as others
 
 You never have to choose between your changes and a teammate's. If you both change different things, both stay. If
-you both change the same thing (say, the status), the one saved last stays, as in any app. The only time you'll see a
-note is when you both rewrote the same lines of a description; your text is kept, and theirs stays in the history.
+you both change the same thing (say, the status, or the same sentence of a description), the one saved last stays, as
+in any app. Nothing is ever really lost: every earlier version stays in the workspace history on GitHub.
 
 ### Statuses
 

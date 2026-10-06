@@ -36,3 +36,20 @@ describe('projects', () => {
     expect(useData.getState().issues[i.id].project).toBeNull()
   })
 })
+
+describe('issue numbers', () => {
+  test('a deleted number is never given out again, in its team or after a move', async () => {
+    const { createTeam, deleteIssue, moveIssueToTeam } = await import('@/data/actions')
+    createTeam({ key: 'ENG', name: 'Eng', emoji: '🛠️' })
+    createTeam({ key: 'DES', name: 'Design', emoji: '🎨' })
+    const a = createIssue({ team: 'ENG', title: 'one' })
+    const b = createIssue({ team: 'ENG', title: 'two' })
+    expect([a.number, b.number]).toEqual([1, 2])
+    deleteIssue(b.id)
+    expect(useData.getState().teams.ENG.lastNumber).toBe(2)
+    expect(createIssue({ team: 'ENG', title: 'three' }).number).toBe(3)
+    const moved = moveIssueToTeam(a.id, 'DES')!
+    expect(moved.number).toBe(1)
+    expect(createIssue({ team: 'ENG', title: 'four' }).number).toBe(4)
+  })
+})

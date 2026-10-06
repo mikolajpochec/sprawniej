@@ -37,6 +37,15 @@ export const isBadKey = (e: unknown) => e instanceof GitHubError && e.status ===
 /** no network (fetch itself failed) */
 export const isOffline = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && !navigator.onLine)
 
+/** any GitHub problem, in words a teammate understands */
+export function plainError(e: unknown): string {
+  if (isOffline(e)) return 'You seem to be offline. Connect to the internet and try again.'
+  if (isBadKey(e)) return 'Your GitHub key doesn’t work any more. Make a new one and sign in again.'
+  if (e instanceof GitHubError && e.retryAt) return 'GitHub asks us to wait a little. Try again in a minute.'
+  if (e instanceof GitHubError && e.status >= 500) return 'GitHub is having trouble right now. Try again in a few minutes.'
+  return `Something went wrong talking to GitHub (${(e as Error).message}). Try again, and if it keeps happening, tell whoever set up Sprawniej.`
+}
+
 interface ReqOpts {
   body?: unknown
   /** extra headers, e.g. If-None-Match */
