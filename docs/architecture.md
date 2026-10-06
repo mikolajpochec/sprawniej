@@ -143,6 +143,10 @@ server does. The code is `src/sync/merge.ts` (`mergeIncoming`), and every row be
 | One deletes an issue, the other edits it | The edit wins and the issue stays | No |
 | One moves an issue to another team, the other edits it | One issue, in the new team, with the edit | No |
 | Mark inbox items as read on two devices | Read lists merge | No |
+| Subscribe and unsubscribe on one issue | The lists merge like labels | No |
+| Archive issues of the same month | Both end up in the month file (it merges line by line, by issue) | No |
+| One archives an issue, the other edits or comments on it | The edit wins: the issue stays active, and the next tidy-up takes it out of the archive (a new comment joins the archived issue instead) | No |
+| Delete, archive or move issues away from one team | The team remembers the higher of the two highest numbers | No |
 | Drag issues around | Each drag rewrites only the moved issue; the same issue: later drop wins | No |
 
 "Later save" means whoever's changes reach GitHub second. Someone who was offline for an hour and then comes back
@@ -150,9 +154,11 @@ counts as later, just as their request would arrive later at a server.
 
 ## Inbox notes
 
-A change that someone should hear about (assigned, mentioned, a comment, an issue done) writes one small file per
+A change that someone should hear about (assigned, mentioned, a comment, a status change) writes one small file per
 person into `inbox/<their login>/`, in the same save as the change. The rules for who hears about what are pure
-functions in `src/data/notify.ts`. Typing the same mention again within ten minutes doesn't send a second note.
+functions in `src/data/notify.ts`: comments and status changes go to an issue's followers (creator, assignee,
+commenters, mentioned people, plus `subscribers`, minus `unsubscribed`). Typing the same mention again, or moving an
+issue to the same status again, within ten minutes doesn't send a second note.
 Read marks live in `state/<login>.json`. The inbox tidies itself when the workspace opens (`tidyInbox` in
 `src/data/actions.ts`), so it stays small however long a team uses it.
 
@@ -193,6 +199,29 @@ the view's page changes the view for everyone. Two people changing different fil
 
 Routes use the URL hash (`#/team/ENG/issues/active`, `#/issue/ENG-12`) because GitHub Pages serves a single file.
 
+## Issue history
+
+There is no history file. Every save is a commit, so an issue's history is the history of its file: one GraphQL
+request (`fileHistory` in `src/github/api.ts`) returns each commit that touched the file, who made it, and the file
+as it was. `src/data/history.ts` compares each version with the next and turns the differences into lines ("moved it
+from Todo to In Progress"). A few saves of the same thing by the same person close together read as one (typing a
+title, clicking a status twice). A move between teams is followed back through the "Move ENG-3 to …" commit. The
+history loads only when an issue page opens, again after that issue's changes are saved, and is kept while the app
+is open (`src/features/issues/useHistory.ts`). Offline, the page simply shows comments without it.
+
+## Archive
+
+Finished issues are archived some months after they're done (`team.autoArchive`, 6 by default). Once a day, after
+the first sync, the app runs `tidyArchive` (`src/data/actions.ts`), which moves due issues in batches of 300 and
+mends the archive after crossed changes. Archived issues are packed into one file per team and month
+(`teams/<KEY>/archive/<YYYY-MM>.jsonl`, docs/data-format.md), so a workspace with years of history stays at a few
+thousand files instead of tens of thousands.
+
+They're also not read when the app opens: `src/data/project.ts` keeps the month files as text and parses them only
+when something asks (`loadArchive`): opening a link to an archived issue, searching, the Archived tab, project
+progress, the import, or an inbox note about one. Numbers are still never reused: `nextNumber` looks at
+`team.lastNumber` and at the numbers in the archive text, which it can find without reading the archive properly.
+
 ## Pictures
 
 A pasted picture is saved as `assets/<hash>.<ext>` (the hash of its bytes, so the same picture is stored once) and
@@ -208,6 +237,13 @@ address, so `src/data/assets.ts` shows them from the browser's own copy of the f
 - The issue title saves a moment after you stop typing, not on every key.
 - The editor and the Markdown formatter load on their own, after the rest of the app (the editor a moment after the
   workspace opens). Code blocks colour a short list of languages (`src/editor/languages.ts`).
+- Old finished issues are archived and packed into month files, which aren't read at start (see Archive). Measured on
+  this machine, reading 15,000 small files from the browser's storage takes about 30 ms and parsing them about 55 ms,
+  so opening a workspace isn't what's slow; the number of files is what costs: the first download on a new device
+  (100 files per request, four requests at a time), GitHub's limit on how many files it lists at once, and how many
+  issues every list has to go through. Archiving keeps all three small.
+- A month file GitHub cuts short in GraphQL is fetched in full through the REST API; big files are sent on their own
+  when saving.
 
 ## Main libraries
 

@@ -34,11 +34,16 @@ The code: `src/features/import/linearApi.ts` reads Linear, `linearMap.ts` turns 
 | Parent issue | Parent (sub-issues) |
 | Sort order | `sortOrder`, keeping Linear's order |
 | Comments | Comments, with the original author and date. Unmatched authors are shown as "From Linear: Name". |
+| Due date, estimate | Kept (any estimate number stays as it is) |
 | Created, updated, completed dates | Kept |
+
+Issues finished longer ago than the team keeps finished issues (six months unless it says otherwise) go straight
+into the team's archive files, with their comments, instead of becoming a file each. They keep their numbers and can
+be searched, opened and restored like any archived issue.
 
 ## What doesn't
 
-- Cycles, estimates, SLAs, customer requests, integrations, agents: Sprawniej doesn't have them.
+- Cycles, SLAs, customer requests, integrations, agents: Sprawniej doesn't have them.
 - Custom views: their filters are too different to map reliably. Recreate the few you need (it takes a minute and
   you get to pick an emoji).
 - Images and files uploaded to Linear stay as links to Linear. They only open for people signed in to Linear.
@@ -48,4 +53,4 @@ The code: `src/features/import/linearApi.ts` reads Linear, `linearMap.ts` turns 
 Each imported file remembers its Linear id (`linearId`), and so does a team that took in a Linear team. Running the
 import again picks those teams by itself and updates what came over instead of making copies, so you can import
 once early and again on switch-over day. Linear's version wins for imported issues; issues made here are left alone.
-Issues deleted in Linear stay here.
+Issues deleted in Linear stay here, and issues archived here since the last import stay archived.

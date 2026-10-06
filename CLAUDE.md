@@ -19,6 +19,8 @@ Read before changing things:
   themselves. One path means "always saved" stays true.
 - **One file per thing, one writer per file where we can.** That is what keeps merges painless. A new kind of data
   gets its own folder of small files, not a field in a shared file.
+  The one exception is the archive: archived issues are packed into one file per team and month, read only when
+  needed, so old work doesn't slow anything down (docs/architecture.md, "Archive").
 - **The repo format is a promise.** Changing what a file means or where it lives is a MAJOR release with a migration.
   Unknown fields must survive a read and write (schemas use `.passthrough()`).
 - **Statuses and priorities are fixed** (`src/model/status.ts`). Don't add custom workflows.
