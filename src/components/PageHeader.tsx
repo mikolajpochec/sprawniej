@@ -1,0 +1,45 @@
+/** The top of a view's or project's page: emoji, name and description, all edited in place, plus a ⋯ menu. */
+import type { ReactNode } from 'react'
+import { MoreHorizontal } from 'lucide-react'
+import { Button } from '@/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/ui/dropdown-menu'
+import { EmojiPicker } from './EmojiPicker'
+import { InlineText } from './InlineText'
+
+interface Props {
+  emoji: string
+  onEmoji: (emoji: string) => void
+  name: string
+  onName: (name: string) => void
+  description: string
+  onDescription: (text: string) => void
+  /** what kind of thing it is, for labels ("view", "project") */
+  kind: string
+  /** items for the ⋯ menu */
+  menu?: ReactNode
+  /** more under the description, e.g. a project's properties */
+  children?: ReactNode
+}
+
+export function PageHeader({ emoji, onEmoji, name, onName, description, onDescription, kind, menu, children }: Props) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        <EmojiPicker value={emoji} onChange={onEmoji} label={`Change the ${kind}'s emoji`} />
+        <InlineText value={name} onSave={onName} label={`${kind[0].toUpperCase()}${kind.slice(1)} name`} required className="text-2xl font-semibold" />
+        {menu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="More actions">
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">{menu}</DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+      <InlineText value={description} onSave={onDescription} label="Description" placeholder="Add a description…" lines="many" className="text-[15px] text-muted-foreground" />
+      {children}
+    </div>
+  )
+}

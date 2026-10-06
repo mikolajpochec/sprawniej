@@ -8,7 +8,7 @@
  */
 import { generateKeyBetween } from 'fractional-indexing'
 import { ulid } from 'ulid'
-import type { Issue, Label, Person, Team } from '@/model/schema'
+import type { Display, Filters, Issue, Label, Person, Project, Team, View } from '@/model/schema'
 import { FORMAT_VERSION } from '@/model/schema'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
 import { workspace } from '@/sync/engine'
@@ -180,6 +180,101 @@ export function deleteLabel(id: string) {
     if (i.labels.includes(id)) files.set(paths.issue(i), issueToFile({ ...i, labels: i.labels.filter((l) => l !== id), updatedAt: now() }))
   }
   save(files, `Delete label ${label.name}`)
+}
+
+// ---------- views ----------
+
+export interface NewView {
+  name: string
+  emoji: string
+  description?: string
+  /** null = the whole workspace */
+  team: string | null
+  filters?: Filters
+  display: Display
+}
+
+export function createView(input: NewView): View {
+  const me = useData.getState().me
+  const view: View = {
+    id: ulid(),
+    name: input.name.trim(),
+    emoji: input.emoji,
+    description: input.description?.trim() ?? '',
+    owner: me?.login ?? 'unknown',
+    team: input.team,
+    filters: input.filters ?? {},
+    display: input.display,
+    createdAt: now(),
+  }
+  save(one(paths.view(view.id), jsonToFile(view)), `Create view ${view.emoji} ${view.name}`)
+  return view
+}
+
+export type ViewPatch = Partial<Pick<View, 'name' | 'emoji' | 'description' | 'filters' | 'display'>>
+
+export function updateView(id: string, patch: ViewPatch) {
+  const view = useData.getState().views[id]
+  if (!view) return
+  const next: View = { ...view, ...patch }
+  // empty filter lists are left out, so the file stays readable
+  next.filters = Object.fromEntries(Object.entries(next.filters).filter(([, v]) => !Array.isArray(v) || v.length > 0))
+  const what = patch.filters ? 'filters' : patch.display ? 'display' : patch.name ? 'rename' : 'edit'
+  save(one(paths.view(id), jsonToFile(next)), `View ${next.emoji} ${next.name}: ${what}`)
+}
+
+export function deleteView(id: string) {
+  const view = useData.getState().views[id]
+  if (!view) return
+  save(one(paths.view(id), null), `Delete view ${view.emoji} ${view.name}`)
+}
+
+// ---------- projects ----------
+
+export interface NewProject {
+  name: string
+  emoji: string
+  description?: string
+  status?: Project['status']
+  lead?: string | null
+  teams?: string[]
+  targetDate?: string | null
+}
+
+export function createProject(input: NewProject): Project {
+  const project: Project = {
+    id: ulid(),
+    name: input.name.trim(),
+    emoji: input.emoji,
+    description: input.description?.trim() ?? '',
+    status: input.status ?? 'planned',
+    lead: input.lead ?? null,
+    teams: input.teams ?? [],
+    targetDate: input.targetDate ?? null,
+    createdAt: now(),
+  }
+  save(one(paths.project(project.id), jsonToFile(project)), `Create project ${project.emoji} ${project.name}`)
+  return project
+}
+
+export type ProjectPatch = Partial<Pick<Project, 'name' | 'emoji' | 'description' | 'status' | 'lead' | 'teams' | 'targetDate'>>
+
+export function updateProject(id: string, patch: ProjectPatch) {
+  const project = useData.getState().projects[id]
+  if (!project) return
+  const next = { ...project, ...patch }
+  const what = patch.status ? `status ${patch.status.replace('_', ' ')}` : patch.lead !== undefined ? 'lead' : patch.targetDate !== undefined ? 'target date' : 'edit'
+  save(one(paths.project(id), jsonToFile(next)), `Project ${next.emoji} ${next.name}: ${what}`)
+}
+
+/** remove a project; its issues stay, without a project */
+export function deleteProject(id: string) {
+  const s = useData.getState()
+  const project = s.projects[id]
+  if (!project) return
+  const files = new Map<string, string | null>([[paths.project(id), null]])
+  for (const i of Object.values(s.issues)) if (i.project === id) files.set(paths.issue(i), issueToFile({ ...i, project: null, updatedAt: now() }))
+  save(files, `Delete project ${project.emoji} ${project.name}`)
 }
 
 // ---------- teams ----------

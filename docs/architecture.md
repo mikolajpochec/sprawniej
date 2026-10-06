@@ -161,8 +161,11 @@ key from the nearest issues at its own level (top-level issues among top-level o
 siblings). Reordering only means something in Manual order; under another ordering a drop can still change the
 group, and otherwise we explain where to switch to Manual.
 
-How a page looks (grouping, ordering, what's hidden) is personal: it's kept in this browser per page
-(`src/data/displays.ts`), never in the workspace. Saved views will carry their own default in their file.
+How a built-in page looks (grouping, ordering, what's hidden) is personal: it's kept in this browser per page
+(`src/data/displays.ts`), never in the workspace. Filters set on a built-in page are personal too and last until you
+leave the page. A saved view is different: its filters and display live in `views/<id>.json`, so changing them on
+the view's page changes the view for everyone. Two people changing different filters at once both keep theirs
+(filter lists merge as sets, see the merge rules).
 
 ## Code layout
 

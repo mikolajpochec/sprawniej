@@ -11,6 +11,8 @@ export function MyIssuesPage() {
     <IssuesView
       page="my-issues"
       filters={{ assignees: [me?.login ?? ''] }}
+      hideFilters={['assignees']}
+      viewScope={null}
       baseDisplay={{ showCompleted: false }}
       empty={
         <EmptyState icon={<CircleUser />} title="Nothing assigned to you">

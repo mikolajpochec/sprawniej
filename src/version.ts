@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '0.3.0'
+export const APP_VERSION = '0.4.0'
 
 export interface Release {
   version: string
@@ -18,6 +18,19 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '0.4.0',
+    date: '2026-10-07',
+    title: 'Views, projects and labels',
+    notes: [
+      'Filter any list by status, assignee, priority, labels, project or team',
+      'Save filters as a view with its own emoji, for the whole workspace or one team',
+      'Rename views, change their emoji and filters in place; changes save for everyone',
+      'Create projects with a status, lead, target date and teams, and see how much is done',
+      'Manage labels in Settings: rename, recolour, delete',
+      'Fixed: ⌘ Enter in the new issue dialog sometimes created the issue twice',
+    ],
+  },
   {
     version: '0.3.0',
     date: '2026-10-07',

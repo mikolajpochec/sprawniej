@@ -3,6 +3,16 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.4.0: Views, projects and labels
+*2026-10-07*
+
+- Filter any list by status, assignee, priority, labels, project or team
+- Save filters as a view with its own emoji, for the whole workspace or one team
+- Rename views, change their emoji and filters in place; changes save for everyone
+- Create projects with a status, lead, target date and teams, and see how much is done
+- Manage labels in Settings: rename, recolour, delete
+- Fixed: ⌘ Enter in the new issue dialog sometimes created the issue twice
+
 ## 0.3.0: Drag and drop
 *2026-10-07*
 

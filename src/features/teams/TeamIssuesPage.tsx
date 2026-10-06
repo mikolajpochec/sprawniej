@@ -27,6 +27,8 @@ export function TeamIssuesPage() {
     <IssuesView
       page={`team:${team.key}:${current}`}
       filters={{ teams: [team.key] }}
+      hideFilters={['teams']}
+      viewScope={team.key}
       tab={current}
       baseDisplay={{ showCompleted: current === 'all' }}
       left={<LinkTabs current={`${base}/${current}`} tabs={TABS.map((t) => ({ href: `${base}/${t.tab}`, label: t.label }))} />}

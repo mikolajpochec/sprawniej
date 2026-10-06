@@ -1,4 +1,4 @@
-/** Settings: the workspace's name, the people in it (and inviting more), and your account. */
+/** Settings: the workspace's name, the people in it (and inviting more), labels, and your account. */
 import { useEffect, useState, type ReactNode } from 'react'
 import { Copy, ExternalLink, Loader2, LogOut, Repeat, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ import { workspace } from '@/sync/engine'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog'
 import { Input } from '@/ui/input'
+import { LabelsSettings } from './LabelsSettings'
 
 function Section({ title, children, description }: { title: string; description?: string; children: ReactNode }) {
   return (
@@ -239,6 +240,9 @@ export function SettingsPage() {
         </Section>
         <Section title="People" description="Everyone here can see and change every issue in the workspace.">
           <People />
+        </Section>
+        <Section title="Labels" description="Labels sort issues across teams. Renaming or recolouring one changes it on every issue.">
+          <LabelsSettings />
         </Section>
         <Section title="Your account">
           <Account />
