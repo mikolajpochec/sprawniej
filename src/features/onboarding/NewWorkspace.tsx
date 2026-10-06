@@ -7,22 +7,15 @@ import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Problem, Step } from './Step'
 import { rememberWorkspaceName } from './setupDraft'
-
-const slug = (s: string) =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
+import { slug, WORKSPACE_PREFIX, workspaceRepoName } from './repoNames'
 
 export function NewWorkspace({ onBack }: { onBack: () => void }) {
   const { token, user, open } = useSession()
   const [orgs, setOrgs] = useState<Org[]>([])
   const [owner, setOwner] = useState(user?.login ?? '')
   const [name, setName] = useState('')
-  const [repo, setRepo] = useState('')
-  const [repoTouched, setRepoTouched] = useState(false)
+  /** what you typed after the prefix, once you change it yourself */
+  const [suffix, setSuffix] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string>()
 
@@ -30,7 +23,7 @@ export function NewWorkspace({ onBack }: { onBack: () => void }) {
     listMyOrgs(token).then(setOrgs, () => {})
   }, [token])
 
-  const repoName = repoTouched ? repo : name.trim() ? `${slug(name)}-sprawniej` : ''
+  const repoName = suffix !== null ? (suffix ? WORKSPACE_PREFIX + suffix : '') : name.trim() ? workspaceRepoName(name) : ''
 
   async function create() {
     if (!user || !name.trim() || !repoName) return
@@ -49,8 +42,7 @@ export function NewWorkspace({ onBack }: { onBack: () => void }) {
             ? `You can't create repositories in ${owner}. Ask an admin there, or choose yourself as the owner.`
             : msg,
       )
-      setRepoTouched(true)
-      setRepo(repoName)
+      setSuffix(repoName.slice(WORKSPACE_PREFIX.length))
     } finally {
       setBusy(false)
     }
@@ -100,15 +92,15 @@ export function NewWorkspace({ onBack }: { onBack: () => void }) {
           <label htmlFor="ws-repo" className="mb-1.5 block text-sm font-medium">
             Repository name
           </label>
-          <Input
-            id="ws-repo"
-            className="h-10 font-mono"
-            value={repoName}
-            onChange={(e) => {
-              setRepoTouched(true)
-              setRepo(slug(e.target.value) || e.target.value)
-            }}
-          />
+          <div className="flex h-10 overflow-hidden rounded-md border bg-input/30 font-mono text-sm focus-within:ring-2 focus-within:ring-ring/50">
+            <span className="flex items-center border-r bg-muted px-3 text-muted-foreground select-none">{WORKSPACE_PREFIX}</span>
+            <input
+              id="ws-repo"
+              className="min-w-0 flex-1 bg-transparent px-3 outline-none"
+              value={repoName.slice(WORKSPACE_PREFIX.length)}
+              onChange={(e) => setSuffix(slug(e.target.value) || e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+            />
+          </div>
           <p className="mt-1.5 text-sm text-muted-foreground">A new private repository where the workspace is stored. Only people you invite can see it.</p>
         </div>
         <Problem>{problem}</Problem>

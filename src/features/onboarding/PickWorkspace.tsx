@@ -5,10 +5,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Clock, Lock, Mail, Plus, Search } from 'lucide-react'
 import { acceptInvitation, listMyInvitations, listMyRepos, repoKey, type MyInvitation, type RepoInfo, type RepoRef } from '@/github/api'
+import { Logo } from '@/components/Logo'
 import { useSession } from '@/session'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { NewWorkspace } from './NewWorkspace'
+import { isWorkspaceRepo, workspacesFirst } from './repoNames'
 import { Problem, Step } from './Step'
 
 function Row({ title, sub, onClick, icon }: { title: string; sub?: string; onClick: () => void; icon?: React.ReactNode }) {
@@ -33,12 +35,16 @@ export function PickWorkspace() {
 
   useEffect(() => {
     listMyRepos(token).then(setRepos, (e: Error) => setProblem(e.message))
-    listMyInvitations(token).then(setInvites, () => {})
+    // only invitations to workspaces: accepting anything else here would be a surprise
+    listMyInvitations(token).then((all) => setInvites(all.filter((i) => isWorkspaceRepo(i.repository.name))), () => {})
   }, [token])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return (repos ?? []).filter((r) => !q || r.full_name.toLowerCase().includes(q)).slice(0, 30)
+    const found = workspacesFirst((repos ?? []).filter((r) => !q || r.full_name.toLowerCase().includes(q)))
+    // every workspace, then other repositories up to 30 rows in total
+    const workspaces = found.filter((r) => isWorkspaceRepo(r.name))
+    return [...workspaces, ...found.filter((r) => !isWorkspaceRepo(r.name)).slice(0, Math.max(0, 30 - workspaces.length))]
   }, [repos, query])
 
   async function join(inv: MyInvitation) {
@@ -97,14 +103,20 @@ export function PickWorkspace() {
         <div className="max-h-64 overflow-y-auto">
           {repos === null && !problem && <p className="px-3 py-2 text-sm text-muted-foreground">Loading…</p>}
           {repos && !shown.length && <p className="px-3 py-2 text-sm text-muted-foreground">Nothing found.</p>}
-          {shown.map((r) => (
-            <Row
-              key={r.full_name}
-              icon={r.private ? <Lock className="size-4 text-muted-foreground" /> : <span className="size-4" />}
-              title={r.full_name}
-              onClick={() => open({ owner: r.owner.login, repo: r.name })}
-            />
-          ))}
+          {shown.map((r, i) => {
+            const ws = isWorkspaceRepo(r.name)
+            const groupStart = i === 0 || ws !== isWorkspaceRepo(shown[i - 1].name)
+            return (
+              <div key={r.full_name}>
+                {groupStart && <h3 className="px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground">{ws ? 'Sprawniej workspaces' : 'Other repositories'}</h3>}
+                <Row
+                  icon={ws ? <Logo className="size-4" /> : r.private ? <Lock className="size-4 text-muted-foreground" /> : <span className="size-4" />}
+                  title={r.full_name}
+                  onClick={() => open({ owner: r.owner.login, repo: r.name })}
+                />
+              </div>
+            )
+          })}
         </div>
       </section>
     </Step>

@@ -3,6 +3,12 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.1.1: Workspaces are easy to spot
+*2026-10-06*
+
+- New workspaces are stored in a repository named workspace-sprawniej-…
+- Those workspaces come first when you choose one
+
 ## 0.1.0: Sign in and everything saves by itself
 *2026-10-06*
 

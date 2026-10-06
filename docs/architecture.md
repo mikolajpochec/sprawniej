@@ -53,6 +53,13 @@ ready-to-send message. The link opens a wizard with one step per screen:
 
 A short tour follows the first visit. The owner's own setup (creating the workspace repo) is a separate, guided path.
 
+### Workspace repositories
+
+Repositories Sprawniej creates are private and named `workspace-sprawniej-<name>` (`src/features/onboarding/repoNames.ts`).
+When you choose a workspace, those come first, under *Sprawniej workspaces*; any other repository you can save to is
+listed after them and opens fine too. "Invitations for you" only shows invitations to `workspace-sprawniej-` repositories,
+so the app never accepts an unrelated GitHub invitation.
+
 ## The copy in your browser
 
 Each workspace has its own IndexedDB database (`src/sync/local.ts`) with:
