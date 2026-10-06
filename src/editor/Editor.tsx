@@ -12,7 +12,11 @@ import { Markdown } from '@tiptap/markdown'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Placeholder } from '@tiptap/extensions'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import Image from '@tiptap/extension-image'
 import { createLowlight } from 'lowlight'
+import { toast } from 'sonner'
+import { addImage } from '@/data/actions'
+import { assetUrl } from '@/data/assets'
 import { cn } from '@/lib/utils'
 import { MentionSuggest } from './MentionSuggest'
 import { References } from './references'
@@ -22,6 +26,20 @@ import { tidyMarkdown } from './tidy'
 const lowlight = createLowlight(LANGUAGES)
 
 const SAVE_AFTER = 400
+
+/** pictures keep their workspace address in the Markdown and show from the app's own copy */
+const Picture = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      src: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute('data-src') ?? el.getAttribute('src'),
+        renderHTML: (attrs: { src?: string | null }) => ({ src: assetUrl(attrs.src), 'data-src': attrs.src }),
+      },
+    }
+  },
+})
 
 interface Props {
   value: string
@@ -58,12 +76,19 @@ export function Editor({ value, onChange, placeholder = 'Add a description…', 
       Markdown,
       References,
       MentionSuggest,
+      Picture,
     ],
     content: value,
     contentType: 'markdown',
     autofocus: autoFocus ? 'end' : false,
     editorProps: {
       attributes: { class: 'prose-sprawniej tiptap-editor outline-none', 'aria-label': label, role: 'textbox', 'aria-multiline': 'true' },
+      handlePaste: (_view, event) => addPictures(event.clipboardData?.files),
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false
+        const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
+        return addPictures(event.dataTransfer?.files, at)
+      },
       handleKeyDown: (_view, event) => {
         if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && submitRef.current) {
           flush()
@@ -79,6 +104,23 @@ export function Editor({ value, onChange, placeholder = 'Add a description…', 
     },
     onBlur: () => flush(),
   })
+
+  /** pasted or dropped pictures: kept in the workspace, then shown where they landed */
+  function addPictures(files: FileList | undefined, at?: number): boolean {
+    const pictures = [...(files ?? [])].filter((f) => f.type.startsWith('image/'))
+    if (!pictures.length) return false
+    for (const f of pictures) {
+      addImage(f).then(
+        (src) => {
+          if (!editor || editor.isDestroyed) return
+          const chain = editor.chain().focus()
+          ;(at === undefined ? chain : chain.setTextSelection(at)).setImage({ src, alt: f.name.replace(/\.[^.]+$/, '') }).run()
+        },
+        (e: Error) => toast(e.message),
+      )
+    }
+    return true
+  }
 
   function flush() {
     clearTimeout(timer.current)

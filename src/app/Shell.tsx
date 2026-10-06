@@ -2,6 +2,8 @@
 import { useEffect, type ReactNode } from 'react'
 import { preloadEditor } from '@/editor/load'
 import { NewIssueDialog } from '@/features/issues/NewIssueDialog'
+import { QuickEdit } from '@/features/issues/QuickEdit'
+import { CommandPalette } from './CommandPalette'
 import { useChrome } from './chrome'
 import { useShortcuts } from './shortcuts'
 import { Sidebar } from './Sidebar'
@@ -23,6 +25,8 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </main>
       <NewIssueDialog />
+      <CommandPalette />
+      <QuickEdit />
     </div>
   )
 }
