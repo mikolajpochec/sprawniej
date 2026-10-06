@@ -257,7 +257,7 @@ export function IssuePage() {
           <Editor key={issue.id} value={issue.description} onChange={(description) => updateIssue(issue.id, { description })} className="mt-4" />
 
           <SubIssues issue={issue} />
-          <Comments issue={issue.id} />
+          <Comments issue={issue} />
         </div>
       </article>
 

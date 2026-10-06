@@ -15,6 +15,7 @@ import {
   createCommit,
   createFirstFile,
   createTree,
+  fileHistory,
   getBlobs,
   getCommit,
   getFiles,
@@ -26,6 +27,7 @@ import {
   moveBranch,
   NotFastForward,
   type Author,
+  type FileVersion,
   type RepoRef,
 } from '@/github/api'
 import { classify, WORKSPACE_FILE } from '@/data/files'
@@ -589,6 +591,11 @@ export class Workspace {
     await this.local.putBase(new Map([[WORKSPACE_FILE, first]]))
     this.meta = { branch: r.branch, head: commit.sha, tree: commit.tree.sha }
     await this.local.setMeta(this.meta)
+  }
+
+  /** the saved versions of a file, newest first (issue history) */
+  history(path: string): Promise<FileVersion[]> {
+    return fileHistory(this.token, this.repo, path)
   }
 
   /** forget this browser's copy (signing out) */

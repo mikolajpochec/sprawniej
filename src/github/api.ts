@@ -286,6 +286,39 @@ export async function getBlobs(token: string, r: RepoRef, shas: string[]): Promi
   return out
 }
 
+export interface FileVersion {
+  /** the commit */
+  oid: string
+  at: string
+  message: string
+  /** GitHub login of whoever saved it, when GitHub knows them */
+  login: string | null
+  name: string
+  /** the file after this commit; null = removed by it */
+  text: string | null
+}
+
+/** The saved versions of one file, newest first (up to `first`), each with who saved it and when. One request. */
+export async function fileHistory(token: string, r: RepoRef, path: string, first = 100): Promise<FileVersion[]> {
+  const query = `query($owner: String!, $name: String!, $path: String!, $first: Int!) { repository(owner: $owner, name: $name) {
+    object(expression: "HEAD") { ... on Commit { history(first: $first, path: $path) { nodes {
+      oid committedDate message author { name user { login } } file(path: $path) { object { ... on Blob { text } } }
+    } } } } } }`
+  type Node = { oid: string; committedDate: string; message: string; author: { name: string | null; user: { login: string } | null } | null; file: { object: { text: string | null } | null } | null }
+  const { data } = await request<{ data?: { repository: { object: { history: { nodes: Node[] } } | null } | null }; errors?: { message: string }[] }>(token, 'POST', '/graphql', {
+    body: { query, variables: { owner: r.owner, name: r.repo, path, first } },
+  })
+  if (!data.data) throw new Error(data.errors?.[0]?.message ?? 'GitHub couldn’t send the history.')
+  return (data.data.repository?.object?.history.nodes ?? []).map((n) => ({
+    oid: n.oid,
+    at: n.committedDate,
+    message: n.message,
+    login: n.author?.user?.login ?? null,
+    name: n.author?.name ?? 'Someone',
+    text: n.file?.object?.text ?? null,
+  }))
+}
+
 /** a binary file, marked with a prefix so it is never mistaken for text */
 export const BINARY_PREFIX = 'base64:'
 

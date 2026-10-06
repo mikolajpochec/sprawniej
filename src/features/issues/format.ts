@@ -33,3 +33,14 @@ export function dueTone(day: string, today = toDay(new Date())): 'overdue' | 'so
 export function estimateName(points: number): string {
   return `${points} ${points === 1 ? 'point' : 'points'}`
 }
+
+const MINUTE = 60_000
+/** "just now", "5 min ago", "3 h ago", "yesterday", else "Oct 2" */
+export function timeAgo(iso: string, now = new Date()): string {
+  const ms = now.getTime() - Date.parse(iso)
+  if (ms < MINUTE) return 'just now'
+  if (ms < 60 * MINUTE) return `${Math.floor(ms / MINUTE)} min ago`
+  if (ms < 24 * 60 * MINUTE && new Date(iso).getDate() === now.getDate()) return `${Math.floor(ms / (60 * MINUTE))} h ago`
+  if (toDay(new Date(iso)) === addDays(-1, now)) return 'yesterday'
+  return shortDate(iso, now)
+}
