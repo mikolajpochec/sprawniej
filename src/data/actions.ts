@@ -15,7 +15,7 @@ import { BINARY_PREFIX } from '@/github/api'
 import { workspace } from '@/sync/engine'
 import { commentToFile as commentFile, issueToFile, jsonToFile, paths } from './files'
 import { commentNotes, issueNotes, type Note } from './notify'
-import { keyBetween } from './ordering'
+import { changedOnly, keyBetween, keysBetween } from './ordering'
 import { applyFiles, parsedFiles, pathOf } from './project'
 import { isUnread } from './select'
 import { issueRef, useData } from './store'
@@ -115,6 +115,20 @@ export function moveIssue(id: string, to: { patch: IssuePatch; place: { prev: st
     patch.sortOrder = keyBetween(key(to.place.prev), key(to.place.next))
   }
   if (Object.keys(patch).length) updateIssue(id, patch)
+}
+
+/** Several picked issues dropped together: each gets the group's change, and they land side by side in this order. */
+export function moveIssues(ids: string[], to: { patch: IssuePatch; place: { prev: string | null; next: string | null } | null }) {
+  const issues = useData.getState().issues
+  const key = (x: string | null) => (x && issues[x] ? issues[x].sortOrder : null)
+  const keys = to.place ? keysBetween(key(to.place.prev), key(to.place.next), ids.length) : null
+  ids.forEach((id, n) => {
+    const issue = issues[id]
+    if (!issue) return
+    const patch = changedOnly(issue, to.patch)
+    if (keys) patch.sortOrder = keys[n]
+    if (Object.keys(patch).length) updateIssue(id, patch)
+  })
 }
 
 export interface NewIssue {

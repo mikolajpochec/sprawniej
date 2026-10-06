@@ -6,8 +6,8 @@ export type QuickField = 'status' | 'priority' | 'assignee' | 'labels'
 
 interface Palette {
   open: boolean
-  /** a quick menu for one property of one issue */
-  quick: { issue: string; field: QuickField } | null
+  /** a quick menu for one property of one or more issues */
+  quick: { issues: string[]; field: QuickField } | null
 }
 
 export const usePalette = create<Palette>()(() => ({ open: false, quick: null }))

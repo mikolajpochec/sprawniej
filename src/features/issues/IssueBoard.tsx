@@ -19,6 +19,8 @@ import { GroupIcon } from './GroupIcon'
 import { SubIssueCount } from './SubIssueCount'
 import { TitleText } from './TitleText'
 import { dragAnnouncements } from './dragText'
+import { CarryCount } from './CarryCount'
+import { selectionClick, useSelection } from './selection'
 import { AUTO_SCROLL, groupDropId, useIssueDrag } from './useIssueDrag'
 
 interface CardProps {
@@ -33,16 +35,23 @@ interface CardProps {
 function IssueCard({ issue, dragRef, dragProps, style, ghost, lifted }: CardProps) {
   const assignee = useData((s) => (issue.assignee ? s.people[issue.assignee] : undefined))
   const labels = useData((s) => s.labels)
+  const picked = useSelection((s) => s.ids.includes(issue.id))
+  const carried = useSelection((s) => s.draggingMany) && picked && !lifted
   return (
     <Link
       ref={dragRef}
       {...dragProps}
       href={`/issue/${issueRef(issue)}`}
       data-issue-id={lifted ? undefined : issue.id}
+      data-picked={picked || undefined}
+      aria-selected={picked || undefined}
+      // capture: the link itself leaves ⌘/Shift-clicks to the browser (new tab), before an onClick would run
+      onClickCapture={(e) => selectionClick(e, issue.id)}
       style={style}
       className={cn(
         'flex flex-col gap-2 rounded-lg border bg-card p-3 text-[15px] shadow-xs hover:border-ring/60 focus-visible:border-ring focus-visible:outline-none touch-manipulation select-none [-webkit-touch-callout:none]',
-        ghost && 'opacity-30',
+        (ghost || carried) && 'opacity-30',
+        picked && !lifted && 'bg-accent ring-1 ring-inset ring-ring/50',
         lifted && 'cursor-grabbing rotate-1 shadow-lg',
       )}
     >
@@ -160,7 +169,14 @@ export function IssueBoard({ groups, display, onAdd }: { groups: Group[]; displa
           ))}
         {drag.parked.size > 0 && <HiddenColumns groups={groups.filter((g) => drag.parked.has(g.key))} onAdd={onAdd} />}
       </div>
-      <DragOverlay>{active && <IssueCard issue={active} lifted />}</DragOverlay>
+      <DragOverlay>
+        {active && (
+          <div className="relative">
+            <IssueCard issue={active} lifted />
+            <CarryCount />
+          </div>
+        )}
+      </DragOverlay>
     </DndContext>
   )
 }

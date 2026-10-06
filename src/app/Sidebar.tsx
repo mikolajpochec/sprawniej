@@ -135,7 +135,7 @@ export function Sidebar() {
         </Link>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button type="button" onClick={() => openComposer()} className="ml-auto rounded-lg border p-2 text-sidebar-foreground/90 hover:bg-sidebar-accent" aria-label="New issue">
+            <button type="button" onClick={() => openComposer()} className="ml-auto rounded-lg border p-2 text-sidebar-foreground/90 hover:bg-sidebar-accent" aria-label="New issue" data-tour="new-issue">
               <SquarePen className="size-4" />
             </button>
           </TooltipTrigger>

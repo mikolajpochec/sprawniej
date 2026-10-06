@@ -6,7 +6,10 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/ui/sheet'
 import { preloadEditor } from '@/editor/load'
 import { NewIssueDialog } from '@/features/issues/NewIssueDialog'
 import { QuickEdit } from '@/features/issues/QuickEdit'
+import { clearSelection } from '@/features/issues/selection'
+import { SelectionBar } from '@/features/issues/SelectionBar'
 import { CommandPalette } from './CommandPalette'
+import { Tour } from './Tour'
 import { useChrome } from './chrome'
 import { useShortcuts } from './shortcuts'
 import { Sidebar } from './Sidebar'
@@ -21,6 +24,7 @@ export function Shell({ children }: { children: ReactNode }) {
   // a phone's menu closes once you've picked where to go
   useEffect(() => {
     useChrome.setState({ menuOpen: false })
+    clearSelection()
   }, [location])
   // fetch the editor while you look around, so the first issue you open is ready at once
   useEffect(() => {
@@ -56,6 +60,8 @@ export function Shell({ children }: { children: ReactNode }) {
       <NewIssueDialog />
       <CommandPalette />
       <QuickEdit />
+      <SelectionBar />
+      <Tour />
     </div>
   )
 }

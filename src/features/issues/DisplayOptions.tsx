@@ -2,7 +2,7 @@
  * "Display": how a page groups and orders its issues, and what it leaves out. Choices are remembered per page in
  * this browser (src/data/displays.ts) and apply at once.
  */
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import type { Display, Grouping, Ordering } from '@/model/schema'
 import type { IssueTab } from '@/model/status'
@@ -10,6 +10,7 @@ import { Button } from '@/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { Switch } from '@/ui/switch'
+import { useSelection } from './selection'
 
 const GROUPING_NAMES: Record<Grouping, string> = { status: 'Status', assignee: 'Assignee', priority: 'Priority', project: 'Project', none: 'No grouping' }
 const ORDERING_NAMES: Record<Ordering, string> = { manual: 'Manual', priority: 'Priority', updated: 'Last updated', created: 'Newest first' }
@@ -36,8 +37,11 @@ interface Props {
 export function DisplayOptions({ display, onChange, onReset, tab }: Props) {
   // the Active and Backlog tabs never show finished issues, so the switch would do nothing there
   const canShowCompleted = tab === 'all'
+  const [open, setOpen] = useState(false)
+  // picking up an issue closes the menu, so it never covers where you're dropping
+  const dragging = useSelection((s) => s.dragging)
   return (
-    <Popover>
+    <Popover open={open && !dragging} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" className="h-10 gap-2 text-[15px]" aria-label="Display">
           <SlidersHorizontal /> <span className="hidden sm:inline">Display</span>

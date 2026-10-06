@@ -3,7 +3,7 @@
  * the moved issue's file: it gets a key between its new neighbours. Dropping into another group also changes the
  * property that group stands for.
  */
-import { generateKeyBetween } from 'fractional-indexing'
+import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing'
 import type { Grouping, Issue } from '@/model/schema'
 import type { IssuePatch } from './actions'
 
@@ -12,6 +12,12 @@ export function keyBetween(prev: string | null, next: string | null): string {
   // two issues can share a key (merged from two people, or edited by hand); then just go right after `prev`
   if (prev !== null && next !== null && prev >= next) return generateKeyBetween(prev, null)
   return generateKeyBetween(prev, next)
+}
+
+/** `n` keys in a row between `prev` and `next`, for several issues dropped together */
+export function keysBetween(prev: string | null, next: string | null, n: number): string[] {
+  if (prev !== null && next !== null && prev >= next) return generateNKeysBetween(prev, null, n)
+  return generateNKeysBetween(prev, next, n)
 }
 
 /** what dropping into a group changes; nothing when grouping is off */

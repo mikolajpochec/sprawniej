@@ -9,9 +9,9 @@ export interface SegmentedOption<T extends string> {
   name?: string
 }
 
-export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: SegmentedOption<T>[]; onChange: (v: T) => void; label: string }) {
+export function Segmented<T extends string>({ value, options, onChange, label, tour }: { value: T; options: SegmentedOption<T>[]; onChange: (v: T) => void; label: string; tour?: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex h-10 rounded-lg border">
+    <div role="radiogroup" aria-label={label} className="inline-flex h-10 rounded-lg border" data-tour={tour}>
       {options.map((o) => (
         <button
           key={o.value}

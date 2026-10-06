@@ -1,8 +1,10 @@
 /**
- * The menu that S (status), P (priority), A (assignee) and L (labels) open for the issue under the mouse, the
- * focused one, or the open one. Pick with the keyboard or the mouse; labels stay open so you can tick several.
+ * The menu that S (status), P (priority), A (assignee) and L (labels) open: for the picked issues, or the one under
+ * the mouse, the focused one, or the open one. Pick with the keyboard or the mouse; labels stay open so you can
+ * tick several. With several issues, a label is ticked when all of them have it.
  */
 import { Check } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { usePalette, type QuickField } from '@/app/palette'
 import type { PickerItem } from '@/components/Picker'
 import { updateIssue } from '@/data/actions'
@@ -15,20 +17,26 @@ import { priorityItems, statusItems, useLabelItems, usePeopleItems } from './pic
 
 const TITLES: Record<QuickField, string> = { status: 'Change status', priority: 'Change priority', assignee: 'Assign to', labels: 'Change labels' }
 
-function Menu({ issue, field }: { issue: Issue; field: QuickField }) {
+function Menu({ issues, field }: { issues: Issue[]; field: QuickField }) {
   const people = usePeopleItems()
   const labels = useLabelItems()
   const close = () => usePalette.setState({ quick: null })
   const items = (field === 'status' ? statusItems : field === 'priority' ? priorityItems : field === 'assignee' ? people : labels) as PickerItem<unknown>[]
-  const chosen = (v: unknown) => (field === 'labels' ? issue.labels.includes(v as string) : issue[field] === v)
+  const chosen = (v: unknown) => issues.every((i) => (field === 'labels' ? i.labels.includes(v as string) : i[field] === v))
 
   function pick(v: unknown) {
     if (field === 'labels') {
+      // a label all of them have comes off; otherwise it goes on all of them
       const id = v as string
-      updateIssue(issue.id, { labels: issue.labels.includes(id) ? issue.labels.filter((l) => l !== id) : [...issue.labels, id] })
+      const off = chosen(id)
+      for (const i of issues) {
+        const has = i.labels.includes(id)
+        if (off && has) updateIssue(i.id, { labels: i.labels.filter((l) => l !== id) })
+        if (!off && !has) updateIssue(i.id, { labels: [...i.labels, id] })
+      }
       return
     }
-    updateIssue(issue.id, { [field]: v })
+    for (const i of issues) if (i[field] !== v) updateIssue(i.id, { [field]: v })
     close()
   }
 
@@ -53,18 +61,19 @@ function Menu({ issue, field }: { issue: Issue; field: QuickField }) {
 
 export function QuickEdit() {
   const quick = usePalette((s) => s.quick)
-  const issue = useData((s) => (quick ? s.issues[quick.issue] : undefined))
+  const issues = useData(useShallow((s) => (quick ? quick.issues.map((id) => s.issues[id]).filter(Boolean) : [])))
+  const open = !!quick && issues.length > 0
   return (
-    <Dialog open={!!quick && !!issue} onOpenChange={(o) => !o && usePalette.setState({ quick: null })}>
-      {quick && issue && (
+    <Dialog open={open} onOpenChange={(o) => !o && usePalette.setState({ quick: null })}>
+      {open && (
         <DialogContent className="top-[20%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-md" showCloseButton={false}>
           <div className="flex items-center gap-2 border-b px-3 py-2 text-sm text-muted-foreground">
-            <DialogTitle className="text-sm font-normal">
-              {TITLES[quick.field]}: <span className="text-foreground">{issueRef(issue)}</span>
+            <DialogTitle className="shrink-0 text-sm font-normal">
+              {TITLES[quick.field]}: <span className="text-foreground">{issues.length === 1 ? issueRef(issues[0]) : `${issues.length} issues`}</span>
             </DialogTitle>
-            <DialogDescription className="truncate">{issue.title}</DialogDescription>
+            <DialogDescription className="truncate">{issues.length === 1 ? issues[0].title : issues.map(issueRef).join(', ')}</DialogDescription>
           </div>
-          <Menu issue={issue} field={quick.field} />
+          <Menu issues={issues} field={quick.field} />
         </DialogContent>
       )}
     </Dialog>

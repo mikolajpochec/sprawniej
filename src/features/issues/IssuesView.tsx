@@ -91,6 +91,7 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
           <FilterButton hide={hideFilters} onPick={setOpenFilter} />
           <DisplayOptions display={display} onChange={setDisplay} onReset={saved ? undefined : mine.resetDisplay} tab={tab} />
           <Segmented
+            tour="layout"
             label="Layout"
             value={display.layout}
             onChange={(layout) => setDisplay({ layout })}
@@ -121,11 +122,11 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
           ))
         )
       ) : display.layout === 'list' ? (
-        <div className="min-h-0 flex-1 overflow-y-auto pb-8">
+        <div className="min-h-0 flex-1 overflow-y-auto pb-8" data-tour="issues">
           <IssueList groups={groups} display={display} onAdd={addTo} />
         </div>
       ) : (
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1" data-tour="issues">
           <IssueBoard groups={groups} display={display} onAdd={addTo} />
         </div>
       )}
