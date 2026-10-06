@@ -78,7 +78,8 @@ Big issues can be split into smaller **sub-issues**. The parent shows a counter 
 Every list of issues can be shown two ways. Switch with **List / Board** at the top right.
 
 - **List:** rows grouped by status. Sub-issues sit just under their parent.
-- **Board:** a column per status, with cards.
+- **Board:** a column per status, with cards. Empty columns wait under **Hidden columns** on the right; drop a
+  card on one to move the issue there.
 
 **Drag and drop** works in both. Drag an issue up or down to change its order, or into another group or column to
 change its status. Your teammates see the new order too. No mouse? Move to an issue with `Tab`, press `Space` to

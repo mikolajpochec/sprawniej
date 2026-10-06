@@ -41,8 +41,13 @@ function baseOrder(groups: Group[], nest: boolean): Record<string, string[]> {
   return Object.fromEntries(groups.map((g) => [g.key, nest ? nestChildren(g.issues).map((r) => r.issue.id) : g.issues.map((i) => i.id)]))
 }
 
-export function useIssueDrag(groups: Group[], display: Display, nest: boolean) {
+/**
+ * `nest`: sub-issues sit under their parent (list). `park`: empty groups are shown apart (the board's hidden
+ * columns); dropping on one moves the issue there, but nothing moves on screen while you hover it.
+ */
+export function useIssueDrag(groups: Group[], display: Display, { nest = false, park = false } = {}) {
   const base = useMemo(() => baseOrder(groups, nest), [groups, nest])
+  const parked = useMemo(() => new Set(park ? groups.filter((g) => g.issues.length === 0).map((g) => g.key) : []), [groups, park])
   const issues = useMemo(() => new Map(groups.flatMap((g) => g.issues.map((i) => [i.id, i] as const))), [groups])
   /** only while dragging: the order on screen */
   const [live, setLive] = useState<Record<string, string[]> | null>(null)
@@ -115,7 +120,7 @@ export function useIssueDrag(groups: Group[], display: Display, nest: boolean) {
     if (!over) return
     const from = groupOf(active.id)
     const to = groupOf(over.id)
-    if (!from || !to || from === to) return
+    if (!from || !to || from === to || parked.has(to)) return
     setLive((o) => {
       const cur = o ?? base
       const target = cur[to].filter((x) => x !== active.id)
@@ -133,14 +138,16 @@ export function useIssueDrag(groups: Group[], display: Display, nest: boolean) {
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     const id = String(active.id)
     const from = startGroup.current
-    const to = groupOf(active.id)
+    // a hidden column takes the drop as it is; otherwise the issue is wherever the live order put it
+    const onParked = over && isGroupId(over.id) && parked.has(String(over.id).slice(GROUP.length))
+    const to = onParked ? String(over.id).slice(GROUP.length) : groupOf(active.id)
     dropped.current = true
     setTimeout(() => (dropped.current = false))
     const issue = issues.get(id)
     if (!over || !from || !to || !issue) return reset()
 
-    let ids = orderRef.current[to]
-    if (!isGroupId(over.id) && over.id !== active.id && ids.includes(String(over.id))) ids = arrayMove(ids, ids.indexOf(id), ids.indexOf(String(over.id)))
+    let ids = onParked ? [id] : orderRef.current[to]
+    if (!onParked && !isGroupId(over.id) && over.id !== active.id && ids.includes(String(over.id))) ids = arrayMove(ids, ids.indexOf(id), ids.indexOf(String(over.id)))
     const group = groups.find((g) => g.key === to)
     const patch = from !== to && group ? changedOnly(issue, groupPatch(display.grouping, group.value)) : {}
     const manual = display.ordering === 'manual'
@@ -163,6 +170,8 @@ export function useIssueDrag(groups: Group[], display: Display, nest: boolean) {
 
   return {
     order,
+    /** empty groups shown apart (board) */
+    parked,
     activeId,
     issue: (id: string): Issue | undefined => issues.get(id),
     /** true right after a drop, so the click that ends a drag doesn't open the issue */
