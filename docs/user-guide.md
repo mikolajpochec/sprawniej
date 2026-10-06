@@ -175,13 +175,21 @@ changes; nothing is copied twice.
 
 | Key | Does |
 | --- | --- |
+| `⌘` `K` (or `Ctrl` `K`), or `/` | Search issues and jump anywhere |
 | `C` | New issue |
-| `⌘` `K` | Search and jump anywhere |
-| `S` | Change status of the issue under the mouse |
+| `S` | Change status of the issue under the mouse (or the open one) |
 | `P` | Change priority |
 | `A` | Change who it's assigned to |
 | `L` | Change labels |
-| `Esc` | Go back |
+| `J` / `K` or `↓` / `↑` | Move to the next or previous issue in a list or board |
+| `Enter` | Open it |
+| `Space` | Pick it up to move it with the arrows; `Space` again puts it down |
+| `Esc` | Go back from an issue |
+
+## Pictures
+
+Paste a picture (or drop one) into a description or a comment. It's kept in your workspace with everything else,
+so only your teammates can see it. Pictures can be up to 10 MB.
 
 ## Something went wrong?
 

@@ -193,6 +193,12 @@ the view's page changes the view for everyone. Two people changing different fil
 
 Routes use the URL hash (`#/team/ENG/issues/active`, `#/issue/ENG-12`) because GitHub Pages serves a single file.
 
+## Pictures
+
+A pasted picture is saved as `assets/<hash>.<ext>` (the hash of its bytes, so the same picture is stored once) and
+written into the Markdown as `/assets/<hash>.png`, which GitHub also shows. Private workspaces can't serve pictures by
+address, so `src/data/assets.ts` shows them from the browser's own copy of the files.
+
 ## Keeping it fast
 
 - The store keeps a separate object per kind of thing. Applying changed files copies only the kinds they touch, so

@@ -3,6 +3,7 @@ import { Fragment } from 'react'
 import { Link } from 'wouter'
 import { PanelLeft, Search } from 'lucide-react'
 import { useChrome } from './chrome'
+import { openPalette } from './palette'
 import { SaveStatus } from './SaveStatus'
 
 export function TopBar() {
@@ -35,11 +36,12 @@ export function TopBar() {
         <SaveStatus />
         <button
           type="button"
+          onClick={openPalette}
           className="flex h-10 w-80 items-center gap-2 rounded-lg border bg-input/20 px-3 text-[15px] text-muted-foreground hover:bg-input/40"
           aria-label="Search"
         >
           <Search className="size-4" />
-          Search issues
+          Search or jump to…
           <kbd className="ml-auto rounded-md border px-1.5 py-0.5 font-sans text-xs">⌘K</kbd>
         </button>
       </div>

@@ -1,7 +1,7 @@
 {
   "name": "sprawniej",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/inter": "^5.3.0",
     "@tiptap/extension-code-block-lowlight": "^3.31.4",
+    "@tiptap/extension-image": "^3.31.4",
     "@tiptap/extension-list": "^3.31.4",
     "@tiptap/extension-mention": "^3.31.4",
     "@tiptap/extensions": "^3.31.4",

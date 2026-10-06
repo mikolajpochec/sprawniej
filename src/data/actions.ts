@@ -11,6 +11,7 @@ import { ulid } from 'ulid'
 import type { Comment, Display, Filters, InboxItem, Issue, Label, Person, Project, ReadState, Team, View } from '@/model/schema'
 import { FORMAT_VERSION } from '@/model/schema'
 import { PRIORITY_NAMES, statusOf } from '@/model/status'
+import { BINARY_PREFIX } from '@/github/api'
 import { workspace } from '@/sync/engine'
 import { commentToFile as commentFile, issueToFile, jsonToFile, paths } from './files'
 import { commentNotes, issueNotes, type Note } from './notify'
@@ -506,4 +507,25 @@ export async function importFiles(files: Map<string, string | null>, message: st
     await workspace()?.flush()
     progress?.(Math.min(entries.length, (n + 1) * IMPORT_BATCH), entries.length)
   }
+}
+
+// ---------- pictures ----------
+
+const IMAGE_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }
+export const MAX_IMAGE_MB = 10
+
+/** Keep a pasted or dropped picture in the workspace. Returns the address to put in the Markdown. */
+export async function addImage(file: Blob): Promise<string> {
+  const ext = IMAGE_TYPES[file.type]
+  if (!ext) throw new Error('Only PNG, JPEG, GIF and WebP pictures can be added.')
+  if (file.size > MAX_IMAGE_MB * 1024 * 1024) throw new Error(`This picture is too big. Pictures can be up to ${MAX_IMAGE_MB} MB.`)
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 24)
+  const path = `assets/${hash}.${ext}`
+  if (!workspace()?.read(path)) {
+    let binary = ''
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+    save(one(path, BINARY_PREFIX + btoa(binary)), 'Add a picture')
+  }
+  return `/${path}`
 }

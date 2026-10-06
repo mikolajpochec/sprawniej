@@ -41,6 +41,7 @@ export function IssueRow({ issue, depth = 0, dragRef, dragProps, style, ghost, l
       ref={dragRef}
       {...dragProps}
       href={`/issue/${issueRef(issue)}`}
+      data-issue-id={lifted ? undefined : issue.id}
       className={cn(
         'group flex h-11 items-center gap-3 rounded-md px-4 text-[15px] hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none',
         ghost && 'opacity-30',

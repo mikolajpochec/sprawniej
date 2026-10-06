@@ -3,6 +3,14 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.8.0: Search, shortcuts and pictures
+*2026-10-07*
+
+- Press ⌘ K (or the search box) to find any issue by ID or title and jump to any page
+- S, P, A and L change status, priority, assignee and labels of the issue under the mouse
+- J and K move between issues; Esc goes back from an issue
+- Paste or drop pictures into descriptions and comments
+
 ## 0.7.0: Import from Linear
 *2026-10-07*
 
