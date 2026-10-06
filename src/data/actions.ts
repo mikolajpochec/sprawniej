@@ -353,7 +353,8 @@ function monthsBefore(at: number, months: number): string {
 }
 
 /**
- * The daily tidy-up: archives issues finished more than a team's `autoArchive` months ago, a few hundred per save,
+ * The daily tidy-up: archives issues finished (and last changed) more than a team's `autoArchive` months ago, a few
+ * hundred per save,
  * and mends the archive after two people's changes crossed (an archived issue someone edited at the same moment
  * stays out of the archive; a comment added to it meanwhile joins it). Returns how many were archived.
  */
@@ -362,7 +363,9 @@ export async function tidyArchive(at = Date.now()): Promise<number> {
   const due: string[] = []
   for (const i of Object.values(s.issues)) {
     const months = s.teams[i.team]?.autoArchive ?? AUTO_ARCHIVE_MONTHS
-    if (months > 0 && isClosed(i) && (i.completedAt ?? i.updatedAt) < monthsBefore(at, months)) due.push(i.id)
+    // finished that long ago and untouched since (so a restored issue isn't put straight back)
+    const last = i.completedAt && i.completedAt > i.updatedAt ? i.completedAt : i.updatedAt
+    if (months > 0 && isClosed(i) && last < monthsBefore(at, months)) due.push(i.id)
   }
   let done = 0
   for (let n = 0; n < due.length; n += IMPORT_BATCH) {

@@ -76,6 +76,17 @@ describe('archiving', () => {
     expect(await tidyArchive(Date.now() + 400 * 86_400_000)).toBe(0)
   })
 
+  test('a restored old issue is not archived again the next day', async () => {
+    const i = createIssue({ team: 'ENG', title: 'Old' })
+    const long = '2025-01-10T00:00:00.000Z'
+    applyFiles(new Map([[paths.issue(i), (await import('@/data/files')).issueToFile({ ...state().issues[i.id], status: 'done', completedAt: long, updatedAt: long })]]), 'ana')
+    expect(await tidyArchive()).toBe(1)
+    loadArchive()
+    restoreIssue(i.id)
+    expect(await tidyArchive(Date.now() + 86_400_000)).toBe(0)
+    expect(state().issues[i.id]).toBeTruthy()
+  })
+
   test('an issue someone edited while another archived it stays active, and the archive lets go of it', async () => {
     const i = createIssue({ team: 'ENG', title: 'Both' })
     const file = (paths.issue(i))

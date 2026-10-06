@@ -57,8 +57,9 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
   const people = useData((s) => s.people)
   const projects = useData((s) => s.projects)
   // issues dropped on the board into a status this tab leaves out (Done on Active) stay in view until you leave
-  const [kept, setKept] = useState<ReadonlySet<string>>(new Set())
-  const keep = (ids: string[]) => setKept((k) => new Set([...k, ...ids]))
+  const [keptOn, setKept] = useState<{ page: string; tab: string; ids: ReadonlySet<string> }>({ page, tab, ids: new Set() })
+  const kept = useMemo(() => (keptOn.page === page && keptOn.tab === tab ? keptOn.ids : new Set<string>()), [keptOn, page, tab])
+  const keep = (ids: string[]) => setKept({ page, tab, ids: new Set([...kept, ...ids]) })
   const shown = useMemo(() => all.filter((i) => matches(i, filters) && matches(i, extra) && (inTab(i, tab) || kept.has(i.id))), [all, filters, extra, tab, kept])
   const board = display.layout === 'board'
   // on a team's page, a board offers only that team's projects as places to drop
