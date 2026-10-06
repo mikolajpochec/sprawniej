@@ -45,7 +45,7 @@ An **issue** is one piece of work: a task, a bug, an idea. Each has a short ID l
 - **Open one:** click it. Change the title, description or any property on the right. It saves by itself.
 - **Labels:** in the labels menu, type a name that doesn't exist yet and choose **Create label**.
 - **Move to another team:** change **Team** on the right. The issue gets that team's next number.
-- **Archive:** the `⋯` button next to the title, then **Archive** (see [Archive](#archive)).
+- **Archive:** the `⋯` button next to the title, then **Archive** (see Archive below).
 - **Delete:** the `⋯` button next to the title, then **Delete issue**.
 - **Links and formatting:** paste a link and it becomes clickable. Select some words and paste a link to turn
   them into a link. Type `**bold**`, `- ` for a list, or `[] ` for a checklist, and it formats as you type.
@@ -201,7 +201,7 @@ Your **Inbox** tells you when someone:
 
 - assigns you an issue,
 - mentions you with `@` in a description or a comment,
-- comments on an issue you follow (see [Subscribing](#subscribing)),
+- comments on an issue you follow (see Subscribing above),
 - changes the status of an issue you follow.
 
 The number in the sidebar is how many you haven't read. Opening a note (or its issue) marks it read. Hover a note to
