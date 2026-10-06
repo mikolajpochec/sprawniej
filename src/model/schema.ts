@@ -145,6 +145,8 @@ export const displaySchema = z
     ordering: z.enum(ORDERINGS),
     showCompleted: z.boolean(),
     showSubIssues: z.boolean(),
+    /** board columns someone hid (group keys); they wait under "Hidden columns" */
+    hiddenColumns: z.array(z.string()).optional(),
   })
   .passthrough()
 export type Display = z.infer<typeof displaySchema>
