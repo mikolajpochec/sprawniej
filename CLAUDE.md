@@ -27,8 +27,8 @@ Read before changing things:
 ## Code map
 `src/app` frame and routes · `src/model` schemas and statuses · `src/data` store, selectors, actions ·
 `src/features/<area>` screens · `src/components` small shared pieces · `src/ui` shadcn components (generated with
-`bunx --bun shadcn@latest add <name>`; fix the `cn` import to `@/lib/utils` after adding) · `src/git`, `src/fs`
-the git layer, copied from peeponote.
+`bunx --bun shadcn@latest add <name>`; fix the `cn` import to `@/lib/utils` after adding) · `src/github` every call to
+GitHub · `src/sync` the local copy, saving, pulling and merging · `src/session.ts` who is signed in.
 
 ## Releasing
 `main` deploys to GitHub Pages and **real people use it**.
@@ -53,7 +53,10 @@ Title line only, plain words. No AI attribution trailers.
   service worker stops the PWA cache from serving an older build.
 - Two people at once: two origins (ports 5298 and 5297) have separate storage.
 - Sync tests use a throwaway repo, never a real team's workspace.
-- The data store is on `window.sprawniej.data` (`.getState()`), so a script can check what the app holds.
+- `window.sprawniej` has `data` (the store), `actions` (everything a person can do) and `sync` (`status`, `workspace()`),
+  so a script can drive and check the app without clicking through every screen. Call `sync.workspace().syncNow()` to
+  sync at once instead of waiting 30 s.
+- Never write a GitHub key into a file (scripts, `.env`, the repo). Pass it as an environment variable for one command.
 
 ## Design
 Follow [docs/design.md](docs/design.md). Use a shadcn component before writing a new one. Linear's colours are only for

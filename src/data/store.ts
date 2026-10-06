@@ -51,8 +51,8 @@ export function findByRef(issues: Record<string, Issue>, ref: string): Issue | u
 
 declare global {
   interface Window {
-    /** for scripted checks in tests: window.sprawniej.data.getState() */
-    sprawniej?: { data: typeof useData }
+    /** for scripted checks in tests: window.sprawniej.data.getState(), window.sprawniej.actions.createIssue(…) */
+    sprawniej?: { data?: typeof useData; actions?: Record<string, unknown>; sync?: unknown }
   }
 }
 if (typeof window !== 'undefined') window.sprawniej = { ...window.sprawniej, data: useData }

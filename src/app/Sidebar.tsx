@@ -1,11 +1,13 @@
 /** The left column: product name, personal pages, workspace pages, your teams, and you at the bottom. */
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
-import { ChevronDown, ChevronsUpDown, CircleHelp, CircleUser, Inbox, Layers, LogOut, Box, SquareStack, Repeat } from 'lucide-react'
+import { ChevronDown, ChevronsUpDown, CircleHelp, CircleUser, Inbox, Layers, LogOut, Box, Plus, Settings, SquareStack, Repeat, ExternalLink } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { Logo } from '@/components/Logo'
 import { PersonAvatar } from '@/components/Avatar'
 import { useData } from '@/data/store'
+import { TeamsDialog } from '@/features/teams/TeamsDialog'
+import { useSession } from '@/session'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 
@@ -28,10 +30,13 @@ function NavItem({ href, icon, children, count, indent }: { href: string; icon: 
   )
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
     <div className="mt-6">
-      <div className="mb-1 px-3 text-[13px] font-medium text-muted-foreground">{title}</div>
+      <div className="mb-1 flex items-center px-3 text-[13px] font-medium text-muted-foreground">
+        {title}
+        {action && <span className="ml-auto">{action}</span>}
+      </div>
       <div className="flex flex-col gap-0.5">{children}</div>
     </div>
   )
@@ -86,19 +91,28 @@ function Me() {
       <DropdownMenuContent side="top" align="start" className="w-60">
         <div className="px-2 py-1.5 text-xs text-muted-foreground">Workspace: {workspace?.name}</div>
         <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <Settings /> Settings and people
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href="/help">
             <CircleHelp /> Help
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem onSelect={() => useSession.getState().close()}>
           <Repeat /> Switch workspace
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>
-          <CircleUser /> Your GitHub profile
+        <DropdownMenuItem asChild>
+          <a href={`https://github.com/${me.login}`} target="_blank" rel="noreferrer">
+            <CircleUser /> Your GitHub profile <ExternalLink className="ml-auto" />
+          </a>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          <LogOut /> Sign out
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <LogOut /> Sign out…
+          </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -106,6 +120,7 @@ function Me() {
 }
 
 export function Sidebar() {
+  const [teamsOpen, setTeamsOpen] = useState(false)
   const myTeams = useData(useShallow((s) => Object.values(s.teams).filter((t) => !s.me || t.members.includes(s.me.login)).map((t) => t.key)))
   const unread = useData((s) => s.inbox.filter((n) => !s.readState.read.includes(n.id) && (!s.readState.readUntil || n.at > s.readState.readUntil)).length)
   return (
@@ -131,11 +146,24 @@ export function Sidebar() {
             Views
           </NavItem>
         </Section>
-        <Section title="Your teams">
+        <Section
+          title="Your teams"
+          action={
+            <button type="button" onClick={() => setTeamsOpen(true)} className="rounded-md p-1 hover:bg-sidebar-accent hover:text-foreground" aria-label="Join or create a team">
+              <Plus className="size-4" />
+            </button>
+          }
+        >
           {myTeams.map((key) => (
             <TeamGroup key={key} teamKey={key} />
           ))}
+          {!myTeams.length && (
+            <button type="button" onClick={() => setTeamsOpen(true)} className="mx-3 mt-1 rounded-lg border border-dashed px-3 py-2 text-left text-sm text-muted-foreground hover:text-foreground">
+              You're not in a team yet. Join one to see its issues.
+            </button>
+          )}
         </Section>
+        <TeamsDialog open={teamsOpen} onOpenChange={setTeamsOpen} />
       </nav>
       <div className="border-t p-2">
         <Me />

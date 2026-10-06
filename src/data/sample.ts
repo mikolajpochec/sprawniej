@@ -83,8 +83,7 @@ const description = `Charts should be easier to read at a glance.
 
 \`\`\`ts
 const total = rows.reduce((sum, r) => sum + r.amount, 0)
-\`\`\`
-`
+\`\`\``
 
 function buildIssues(): Issue[] {
   const counters: Record<string, number> = {}

@@ -4,8 +4,9 @@ Sprawniej is a web page and nothing else. There is no server of ours. The data l
 the team picks: each issue, comment, view and project is a small file there. The page keeps a copy of that repo in
 the browser, changes files when you work, and sends the changes to GitHub on its own.
 
-This is the same idea as [peeponote](https://github.com/mikolajpochec/peeponote), our canvas app. The git layer is
-copied from it.
+This is the same idea as [peeponote](https://github.com/mikolajpochec/peeponote), our canvas app. Unlike peeponote we
+don't run git in the browser: we only ever talk to GitHub, so we use GitHub's API directly. That needs fewer requests
+and no special tricks.
 
 ## The big picture
 
@@ -16,11 +17,11 @@ Browser (Sprawniej, a PWA on GitHub Pages)
      v
   src/data/actions.ts  (the only code that changes data)
      |-> data store (zustand)              the screen updates at once
-     |-> file in the local repo            survives a closed tab or a crash (IndexedDB)
-     '-> save queue                        ~1.5 s later: commit + push to GitHub
+     |-> "pending" file in IndexedDB       survives a closed tab or a crash
+     '-> save (src/sync/engine.ts)         ~1.5 s later: one commit on GitHub
 
   every 30 s, on focus, on reconnect:
-     fetch from GitHub -> merge -> reload the files that changed -> store
+     "anything new?" -> download changed files -> merge with pending -> store
 
 GitHub repo (for example acme/sprawniej-data) = the workspace
 ```
@@ -52,21 +53,37 @@ ready-to-send message. The link opens a wizard with one step per screen:
 
 A short tour follows the first visit. The owner's own setup (creating the workspace repo) is a separate, guided path.
 
+## The copy in your browser
+
+Each workspace has its own IndexedDB database (`src/sync/local.ts`) with:
+
+- **base**: every file as it is on GitHub at a known commit,
+- **pending**: your changes that haven't reached GitHub yet (a deleted file is stored as nothing),
+- **meta**: which commit `base` matches, and the branch.
+
+What you see is base with pending laid on top. The first time you open a workspace, every file is downloaded (100 per
+request, through GitHub's GraphQL API). After that only changed files are.
+
 ## Saving (there is no Save button)
 
 1. An action updates the store and writes the file to the local repo straight away.
-2. After about 1.5 seconds without new changes (or at once when you leave the page or hide the tab), the save
-   queue commits the changed files with a plain message, such as `ENG-12: In Progress -> Done`, and pushes.
-3. If GitHub says someone else pushed first, we fetch, merge, and push again (up to 3 times).
-4. Offline, changes keep piling up in the local repo and go out when you are back online.
+2. After about 1.5 seconds without new changes (or at once when you hide the tab), all pending files go to GitHub as
+   one commit with a plain message, such as `ENG-12: In Progress -> Done`. That is three requests: a new tree on top
+   of the last known one, a commit, and moving the branch.
+3. Moving the branch refuses to overwrite a teammate's newer save. Then we pull, merge, and try again (up to 4 times).
+4. An empty repository can't take a tree yet, so the very first file (`sprawniej.json`) is created through GitHub's
+   contents API.
+5. Offline, changes keep piling up in pending and go out when you are back online.
 
 Commits are authored as `Name <id+login@users.noreply.github.com>`, so GitHub shows them as yours.
 
 ## Getting other people's changes
 
 We check GitHub every 30 seconds while the tab is visible, when the tab gets focus, and when the network comes
-back. The check sends an ETag, so "nothing changed" doesn't use up GitHub's rate limit. When there is something
-new, we merge it and reload only the files that changed.
+back. The check asks for the branch with an ETag, so "nothing changed" doesn't use up GitHub's rate limit. When the
+branch moved, GitHub's compare API lists the changed files (if it can't, for example after a rewritten history, we
+compare whole file lists by their git ids). We download only those, merge them with pending, and update the screen
+before anything else runs, so your next edit starts from the merged version.
 
 ## Merge rules
 
@@ -97,7 +114,10 @@ or project).
 | `src/app` | The frame (sidebar, top bar), routes, the save chip |
 | `src/model` | File schemas (zod) and the fixed statuses and priorities |
 | `src/data` | The store, pure selectors (filter, group, sort), `actions.ts`, the save queue |
-| `src/git`, `src/fs` | The git layer from peeponote: local repo in IndexedDB, GitHub transport, merging |
+| `src/github` | Every call to GitHub (REST and GraphQL), with errors in plain words |
+| `src/sync` | The browser copy, the save and pull loop, merging, renumbering |
+| `src/session.ts` | Who is signed in, which workspace is open (localStorage) |
+| `src/features/onboarding` | Sign-in, the join wizard, choosing and creating workspaces |
 | `src/features/*` | Screens, one folder per area (issues, views, projects, inbox, import, help…) |
 | `src/components` | Small shared pieces (avatar, empty state, segmented switch) |
 | `src/ui` | shadcn/ui components |
@@ -107,6 +127,7 @@ Routes use the URL hash (`#/team/ENG/issues/active`, `#/issue/ENG-12`) because G
 
 ## Main libraries
 
-React 19, Vite, Tailwind v4, shadcn/ui (Radix), lucide icons, zustand, zod, isomorphic-git with lightning-fs,
+React 19, Vite, Tailwind v4, shadcn/ui (Radix), lucide icons, zustand, zod, idb-keyval (IndexedDB), yaml, node-diff3
+(description merges), sonner (messages),
 TipTap (descriptions and comments, stored as Markdown), dnd-kit (drag-n-drop), frimousse (emoji picker),
 cmdk (the ⌘K palette), wouter (routes).

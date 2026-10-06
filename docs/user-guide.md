@@ -13,7 +13,12 @@ You need two things, and the join link walks you through both:
    with everything filled in. You just scroll down, press the green **Generate token** button, and copy the key
    back into Sprawniej.
 
-You only do this once per browser.
+You only do this once per browser. The join link also accepts the GitHub invitation for you.
+
+### Inviting someone
+
+Open the menu under your name (bottom left) and choose **Settings and people**. Type their GitHub username and press
+**Invite**, then send them the join link from the same page. (Only the workspace's admins can invite.)
 
 ## Your work saves by itself
 
@@ -76,6 +81,7 @@ On your team's page, the tabs show:
 ## Teams
 
 Your teams are in the sidebar under **Your teams**. Each team has its own **Issues**, **Projects** and **Views**.
+Press **+** next to *Your teams* to join a team or create a new one.
 
 ## Views
 
@@ -109,4 +115,5 @@ the sidebar is how many you haven't seen.
   right GitHub page) and paste it in.
 - **"You don't have access to this workspace"**: ask the person who invited you to invite you again, then accept the
   invitation on GitHub.
-- **Using a shared computer?** Open the menu under your name at the bottom left and choose **Sign out** when you're done.
+- **Using a shared computer?** Open the menu under your name at the bottom left, choose **Sign out**, and confirm on
+  the page that opens. It removes your key and the workspace from that browser.

@@ -27,5 +27,4 @@ bun run build      # dist/, deployed to GitHub Pages from main
 
 Start with [CLAUDE.md](CLAUDE.md) (working rules) and [docs/architecture.md](docs/architecture.md).
 
-Git in the browser by [isomorphic-git](https://isomorphic-git.org). The sync layer comes from
-[peeponote](https://github.com/mikolajpochec/peeponote).
+The "repo is the database" idea comes from [peeponote](https://github.com/mikolajpochec/peeponote).

@@ -1,0 +1,37 @@
+/** The frame for every onboarding screen: logo, progress dots, a title, the content, and the buttons. */
+import type { ReactNode } from 'react'
+import { Logo } from '@/components/Logo'
+import { cn } from '@/lib/utils'
+
+export function Step({ step, of, title, children, footer, wide }: { step?: number; of?: number; title: ReactNode; children?: ReactNode; footer?: ReactNode; wide?: boolean }) {
+  return (
+    <div className="flex min-h-full flex-col items-center justify-center bg-sidebar px-4 py-12">
+      <div className={cn('w-full rounded-2xl border bg-background p-8 shadow-xl sm:p-10', wide ? 'max-w-2xl' : 'max-w-lg')}>
+        <div className="mb-8 flex items-center gap-3">
+          <Logo className="size-8" />
+          <span className="text-xl font-semibold tracking-tight">Sprawniej</span>
+          {step !== undefined && of !== undefined && (
+            <ol className="ml-auto flex gap-1.5" aria-label={`Step ${step} of ${of}`}>
+              {Array.from({ length: of }, (_, i) => (
+                <li key={i} className={cn('size-2 rounded-full bg-muted', i < step && 'bg-foreground')} />
+              ))}
+            </ol>
+          )}
+        </div>
+        <h1 className="text-2xl font-semibold leading-tight">{title}</h1>
+        <div className="mt-4 text-[15px] leading-relaxed text-foreground/85">{children}</div>
+        {footer && <div className="mt-8 flex flex-wrap items-center gap-3">{footer}</div>}
+      </div>
+    </div>
+  )
+}
+
+/** a short line of red text under a field, in plain words */
+export function Problem({ children }: { children?: ReactNode }) {
+  if (!children) return null
+  return (
+    <p role="alert" className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-red-200">
+      {children}
+    </p>
+  )
+}

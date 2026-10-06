@@ -1,5 +1,6 @@
 import { Redirect, Route, Router, Switch } from 'wouter'
 import { useHashLocation } from 'wouter/use-hash-location'
+import { Toaster } from '@/ui/sonner'
 import { TooltipProvider } from '@/ui/tooltip'
 import { useData } from '@/data/store'
 import { HelpPage } from '@/features/help/HelpPage'
@@ -11,6 +12,8 @@ import { ProjectsPage } from '@/features/projects/ProjectsPage'
 import { TeamIssuesPage } from '@/features/teams/TeamIssuesPage'
 import { ViewPage } from '@/features/views/ViewPage'
 import { ViewsPage } from '@/features/views/ViewsPage'
+import { SettingsPage } from '@/features/settings/SettingsPage'
+import { Gate } from './Gate'
 import { NotFound } from './NotFound'
 import { Shell } from './Shell'
 
@@ -24,7 +27,8 @@ export function App() {
   return (
     <TooltipProvider delayDuration={300}>
       <Router hook={useHashLocation}>
-        <Shell>
+        <Gate>
+          <Shell>
           <Switch>
             <Route path="/" component={Home} />
             <Route path="/inbox" component={InboxPage} />
@@ -38,10 +42,13 @@ export function App() {
             <Route path="/team/:key/views" component={ViewsPage} />
             <Route path="/issue/:ref" component={IssuePage} />
             <Route path="/help" component={HelpPage} />
+            <Route path="/settings" component={SettingsPage} />
             <Route component={NotFound} />
           </Switch>
-        </Shell>
+          </Shell>
+        </Gate>
       </Router>
+      <Toaster position="bottom-right" />
     </TooltipProvider>
   )
 }
