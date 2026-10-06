@@ -3,6 +3,13 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 0.7.0: Import from Linear
+*2026-10-07*
+
+- Settings › Import from Linear brings teams, issues, comments, projects and labels over
+- Issue numbers stay the same, and people are matched by name (you can fix any match)
+- Run it again later to bring in new changes without making copies
+
 ## 0.6.0: Comments, sub-issues and your inbox
 *2026-10-07*
 

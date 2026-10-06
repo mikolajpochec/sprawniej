@@ -164,6 +164,13 @@ The number in the sidebar is how many you haven't read. Opening a note (or its i
 mark it read or delete it; **Mark all as read** and the `⋯` menu at the top work on all of them. Read notes clear
 themselves after a month, and unread ones after three.
 
+## Moving over from Linear
+
+**Settings › Import from Linear** brings your teams, issues, comments, projects and labels over. You'll need a
+Linear personal API key (the first step shows where to make one). Pick the teams, check who's who, and press
+**Import**. Issue numbers stay the same (`ENG-123` is still `ENG-123`). You can run it again later to bring in new
+changes; nothing is copied twice.
+
 ## Handy keys
 
 | Key | Does |

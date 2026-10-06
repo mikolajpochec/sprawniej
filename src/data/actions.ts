@@ -487,3 +487,23 @@ export function renameWorkspace(name: string) {
   if (!ws || !name.trim()) return
   save(one(paths.workspace(), jsonToFile({ ...ws, name: name.trim() })), `Rename the workspace to ${name.trim()}`)
 }
+
+// ---------- import ----------
+
+/** how many files go into one save; big imports are saved in parts so GitHub never gets one huge change */
+const IMPORT_BATCH = 300
+
+/**
+ * Write a prepared import (features/import). Saves part by part and waits for each, calling `progress` with how
+ * many files are saved so far.
+ */
+export async function importFiles(files: Map<string, string | null>, message: string, progress?: (saved: number, total: number) => void) {
+  const entries = [...files]
+  const parts = Math.ceil(entries.length / IMPORT_BATCH)
+  for (let n = 0; n < parts; n++) {
+    const batch = new Map(entries.slice(n * IMPORT_BATCH, (n + 1) * IMPORT_BATCH))
+    save(batch, parts > 1 ? `${message} (part ${n + 1} of ${parts})` : message)
+    await workspace()?.flush()
+    progress?.(Math.min(entries.length, (n + 1) * IMPORT_BATCH), entries.length)
+  }
+}
