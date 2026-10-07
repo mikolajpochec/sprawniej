@@ -13,7 +13,8 @@ from the browser (Linear allows that), so nothing passes through a server of our
    with the same number, the imported one gets the next free number, and the check step lists these.
 3. **People**: Linear people are matched to GitHub people in the workspace by name. You can fix any match or leave
    someone unmatched (their issues come in unassigned, and their comments say who wrote them).
-4. **Check**: how many teams, issues, comments, projects and labels will come over.
+4. **Check**: how many teams, issues, comments, projects, labels and views will come over, and which views can't
+   keep all their filters.
 5. **Import**: everything is written as files and saved as `Import from Linear: 412 issues`. Big imports are
    saved in parts of 300 files (`… (part 2 of 5)`), with a progress bar; keep the page open until it's done.
 
@@ -36,6 +37,7 @@ The code: `src/features/import/linearApi.ts` reads Linear, `linearMap.ts` turns 
 | Comments | Comments, with the original author and date. Unmatched authors are shown as "From Linear: Name". |
 | Due date, estimate | Kept (any estimate number stays as it is) |
 | Created, updated, completed dates | Kept |
+| Custom view (name, icon, description, filters) | View: a team's view stays with that team, a workspace view shows the whole workspace. See below for filters. |
 
 Issues finished longer ago than the team keeps finished issues (six months unless it says otherwise) go straight
 into the team's archive files, with their comments, instead of becoming a file each. They keep their numbers and can
@@ -44,13 +46,39 @@ be searched, opened and restored like any archived issue.
 ## What doesn't
 
 - Cycles, SLAs, customer requests, integrations, agents: Sprawniej doesn't have them.
-- Custom views: their filters are too different to map reliably. Recreate the few you need (it takes a minute and
-  you get to pick an emoji).
+- Parts of a custom view's filters (see below), and its layout: imported views start as a list grouped by status,
+  showing finished issues too. Change that on the view; a later import keeps it.
 - Images and files uploaded to Linear stay as links to Linear. They only open for people signed in to Linear.
+
+## Custom views
+
+Views of the picked teams come over, plus workspace views. The key's owner sees their own private views too, and
+those come over as well; a view here is shared with everyone. The icon becomes the view's emoji when it is one (🔎
+otherwise), and the owner is the matched person.
+
+A view's filters come over when they say "is" or "is any of" about these, joined with "and":
+
+| Linear filter | Sprawniej filter |
+| --- | --- |
+| Status (a state, by id or name, or a type such as "started") | Status (a type brings every status of that kind) |
+| Assignee (a person, or "no assignee") | Assignee; a person nobody was matched to can't come over |
+| Priority | Priority |
+| Labels ("has any of", by label or name) | Labels |
+| Project (a project, or "no project") | Project |
+| Team (on a workspace view) | Team |
+
+Anything else is left out: "is not", "or" with more than one choice, dates, cycles, creator, text search and so on.
+The view still comes over with the rest of its filters, so it may show more issues than it did in Linear. The check
+step names these views, so you can look them over afterwards. If none of a view's filters can come over, it shows
+every issue (of its team, for a team's view).
+
+`src/features/import/linearFilters.ts` does the filter mapping (tested in `tests/linearImport.test.ts`). If reading
+views from Linear fails, the import goes on without them and says so.
 
 ## Running it again
 
 Each imported file remembers its Linear id (`linearId`), and so does a team that took in a Linear team. Running the
 import again picks those teams by itself and updates what came over instead of making copies, so you can import
-once early and again on switch-over day. Linear's version wins for imported issues; issues made here are left alone.
+once early and again on switch-over day. Linear's version wins for imported issues and views (except a view's layout,
+which stays as you set it); issues and views made here are left alone.
 Issues deleted in Linear stay here, and issues archived here since the last import stay archived.
