@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '1.4.0'
+export const APP_VERSION = '1.4.1'
 
 export interface Release {
   version: string
@@ -18,6 +18,12 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.4.1',
+    date: '2026-10-08',
+    title: 'Longer issue numbers fit',
+    notes: ['Issue numbers like WEB-123 stay on one line in lists, search and the archive'],
+  },
   {
     version: '1.4.0',
     date: '2026-10-07',

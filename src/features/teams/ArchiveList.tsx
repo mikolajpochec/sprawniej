@@ -72,7 +72,7 @@ export function ArchiveList({ team, left }: { team: string; left: React.ReactNod
             {list.slice(0, shown).map((a) => (
               <li key={a.id}>
                 <Link href={`/issue/${issueRef(a)}`} className="flex h-11 items-center gap-3 rounded-md px-2 text-[15px] hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none sm:px-4">
-                  <span className="hidden w-16 shrink-0 text-muted-foreground tabular-nums sm:inline">{issueRef(a)}</span>
+                  <span className="hidden min-w-[4.75rem] shrink-0 whitespace-nowrap text-muted-foreground tabular-nums sm:inline">{issueRef(a)}</span>
                   <StatusIcon status={a.status} />
                   <span className="min-w-0 truncate text-foreground/80">
                     <TitleText title={a.title} />
