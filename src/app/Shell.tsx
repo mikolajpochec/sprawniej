@@ -9,6 +9,7 @@ import { QuickEdit } from '@/features/issues/QuickEdit'
 import { clearSelection } from '@/features/issues/selection'
 import { SelectionBar } from '@/features/issues/SelectionBar'
 import { CommandPalette } from './CommandPalette'
+import { JoinTeams } from './JoinTeams'
 import { Tour } from './Tour'
 import { useChrome } from './chrome'
 import { useShortcuts } from './shortcuts'
@@ -61,6 +62,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <CommandPalette />
       <QuickEdit />
       <SelectionBar />
+      <JoinTeams />
       <Tour />
     </div>
   )

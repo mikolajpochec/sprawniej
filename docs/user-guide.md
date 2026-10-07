@@ -161,7 +161,15 @@ comments, under the same ID.
 ## Teams
 
 Your teams are in the sidebar under **Your teams**. Each team has its own **Issues**, **Projects** and **Views**.
-Press **+** next to *Your teams* to join a team or create a new one.
+Press **+** next to *Your teams* to join a team or create a new one. If you're in no team yet, Sprawniej asks which
+teams you work with when you open the workspace; **Skip for now** if you'd rather look around first.
+
+Point at a team in the sidebar and press **⋯** to:
+
+- **Edit team:** change its emoji and name. It saves as you go. The short key (`ENG`) stays, so issue links keep working.
+- **Leave team:** it leaves your sidebar; the team and its issues stay for everyone else. Join again with **+**.
+- **Delete team:** removes the team for everyone, with its issues, comments, archive and its own views. Projects
+  stay, without that team. You'll be asked to type the team's name first, because this can't be undone.
 
 ## Filters
 

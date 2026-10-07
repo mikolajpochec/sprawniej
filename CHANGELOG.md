@@ -3,6 +3,13 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.4.0: Pick your teams, and change them
+*2026-10-07*
+
+- When you’re in no team yet, Sprawniej asks which teams you work with (or skip it and look around first)
+- Point at a team in the sidebar and press ⋯ to change its emoji and name, leave it, or delete it
+- Deleting a team says what goes with it and asks you to type the team’s name first
+
 ## 1.3.1: Emptied workspaces open again
 *2026-10-07*
 

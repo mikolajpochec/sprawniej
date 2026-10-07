@@ -649,6 +649,56 @@ export function setAutoArchive(key: string, months: number) {
   save(one(paths.team(key), jsonToFile({ ...team, autoArchive: months })), months ? `${team.name}: archive finished issues after ${months} months` : `${team.name}: never archive finished issues`)
 }
 
+/** a team's name or emoji; its key stays (issue numbers like ENG-12 are made from it) */
+export function updateTeam(key: string, patch: { name?: string; emoji?: string }) {
+  const team = useData.getState().teams[key]
+  if (!team) return
+  const next = { ...team, ...(patch.name !== undefined && { name: patch.name.trim() }), ...(patch.emoji !== undefined && { emoji: patch.emoji }) }
+  if (!next.name || (next.name === team.name && next.emoji === team.emoji)) return
+  save(one(paths.team(key), jsonToFile(next)), next.name !== team.name ? `Rename team ${team.name} to ${next.name}` : `Team ${next.emoji} ${next.name}: emoji`)
+}
+
+/** what deleting a team takes with it, for the warning */
+export function teamContents(key: string): { issues: number; archived: number; comments: number; views: number } {
+  const s = useData.getState()
+  const prefix = `teams/${key}/`
+  const all = workspace()?.paths() ?? []
+  const archived = all
+    .filter((p) => p.startsWith(`${prefix}archive/`))
+    .reduce((n, p) => n + (workspace()?.read(p) ?? '').split('\n').filter((l) => l.trim()).length, 0)
+  return {
+    issues: Object.values(s.issues).filter((i) => i.team === key).length,
+    archived,
+    comments: all.filter((p) => p.startsWith(`${prefix}comments/`)).length,
+    views: Object.values(s.views).filter((v) => v.team === key).length,
+  }
+}
+
+/**
+ * Delete a team for everyone: its issues, comments, archive and its own views go. Sub-issues in other teams lose their
+ * parent, projects stop listing the team, and inbox notes about its issues go away.
+ */
+export function deleteTeam(key: string) {
+  const s = useData.getState()
+  const team = s.teams[key]
+  if (!team) return
+  const files = new Map<string, string | null>()
+  for (const p of [...(workspace()?.paths() ?? []), ...archiveFiles().keys()]) if (p.startsWith(`teams/${key}/`)) files.set(p, null)
+  files.set(paths.team(key), null)
+  const gone = new Set(Object.values(s.issues).filter((i) => i.team === key).map((i) => i.id))
+  for (const id of gone) {
+    files.set(paths.issue(s.issues[id]), null)
+    for (const c of s.comments[id] ?? []) files.set(paths.comment(key, c), null)
+  }
+  for (const i of Object.values(s.issues)) {
+    if (i.team !== key && i.parent && gone.has(i.parent)) files.set(paths.issue(i), issueToFile({ ...i, parent: null, updatedAt: now() }))
+  }
+  for (const v of Object.values(s.views)) if (v.team === key) files.set(paths.view(v.id), null)
+  for (const p of Object.values(s.projects)) if (p.teams.includes(key)) files.set(paths.project(p.id), jsonToFile({ ...p, teams: p.teams.filter((t) => t !== key) }))
+  dropNotes(files, (n) => gone.has(n.issue))
+  save(files, `Delete team ${team.emoji} ${team.name}`)
+}
+
 export function joinTeam(key: string) {
   const s = useData.getState()
   const team = s.teams[key]
