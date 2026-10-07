@@ -3,6 +3,11 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.3.1: Emptied workspaces open again
+*2026-10-07*
+
+- A workspace whose files were all removed now offers to set it up again, instead of saying you have no access to it
+
 ## 1.3.0: A Subscribers filter, and everyone comes over from Linear
 *2026-10-07*
 

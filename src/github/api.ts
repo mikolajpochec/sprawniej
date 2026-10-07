@@ -238,8 +238,15 @@ export async function getHead(token: string, r: RepoRef, branch: string, etag?: 
 export const getCommit = (token: string, r: RepoRef, sha: string) =>
   get<{ sha: string; tree: { sha: string }; parents: { sha: string }[] }>(token, `/repos/${r.owner}/${r.repo}/git/commits/${sha}`)
 
+/**
+ * Git's id for a tree with nothing in it (every file removed). GitHub won't list it (404) or build on it, and won't
+ * make one from an empty list, so it's handled here by hand.
+ */
+export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
 /** every file in a commit's tree */
 export async function getFiles(token: string, r: RepoRef, treeSha: string): Promise<TreeItem[]> {
+  if (treeSha === EMPTY_TREE) return []
   const t = await get<{ tree: TreeItem[]; truncated: boolean }>(token, `/repos/${r.owner}/${r.repo}/git/trees/${treeSha}?recursive=1`)
   if (t.truncated) throw new Error('This workspace has too many files for GitHub to list at once.')
   return t.tree.filter((e) => e.type === 'blob')
@@ -369,7 +376,10 @@ export async function createTree(token: string, r: RepoRef, baseTree: string | n
       tree.push({ path: e.path, mode: '100644', type: 'blob', sha: data.sha })
     } else tree.push({ path: e.path, mode: '100644', type: 'blob', content: e.content })
   }
-  const body = baseTree ? { base_tree: baseTree, tree } : { tree }
+  const base = baseTree === EMPTY_TREE ? null : baseTree
+  // removing files from nothing leaves nothing
+  if (!base && !tree.some((e) => e.sha !== null)) return EMPTY_TREE
+  const body = base ? { base_tree: base, tree } : { tree: tree.filter((e) => e.sha !== null) }
   return (await request<{ sha: string }>(token, 'POST', `/repos/${r.owner}/${r.repo}/git/trees`, { body })).data.sha
 }
 
