@@ -3,6 +3,11 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.4.1: Longer issue numbers fit
+*2026-10-08*
+
+- Issue numbers like WEB-123 stay on one line in lists, search and the archive
+
 ## 1.4.0: Pick your teams, and change them
 *2026-10-07*
 

@@ -96,7 +96,7 @@ function Palette() {
             {found.map((i) => (
               <CommandItem key={i.id} value={`issue-${i.id}`} onSelect={() => pick(go(`/issue/${issueRef(i)}`))}>
                 <StatusIcon status={i.status} />
-                <span className="w-16 shrink-0 text-muted-foreground tabular-nums">{issueRef(i)}</span>
+                <span className="min-w-[4.75rem] shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{issueRef(i)}</span>
                 <span className="truncate">{i.title}</span>
               </CommandItem>
             ))}
