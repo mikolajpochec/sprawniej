@@ -21,12 +21,15 @@ interface Props {
   children?: ReactNode
 }
 
+const editable = '-mx-2 rounded-md px-2 hover:bg-accent/50 focus:bg-accent/50'
+
 export function PageHeader({ emoji, onEmoji, name, onName, description, onDescription, kind, menu, children }: Props) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
         <EmojiPicker value={emoji} onChange={onEmoji} label={`Change the ${kind}'s emoji`} />
-        <InlineText value={name} onSave={onName} label={`${kind[0].toUpperCase()}${kind.slice(1)} name`} required className="text-2xl font-semibold" />
+        {/* a light background on hover shows the name can be changed in place */}
+        <InlineText value={name} onSave={onName} label={`${kind[0].toUpperCase()}${kind.slice(1)} name`} required className={`${editable} text-2xl font-semibold`} />
         {menu && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -38,7 +41,7 @@ export function PageHeader({ emoji, onEmoji, name, onName, description, onDescri
           </DropdownMenu>
         )}
       </div>
-      <InlineText value={description} onSave={onDescription} label="Description" placeholder="Add a description…" lines="many" className="text-[15px] text-muted-foreground" />
+      <InlineText value={description} onSave={onDescription} label="Description" placeholder="Add a description…" lines="many" className={`${editable} text-[15px] text-muted-foreground`} />
       {children}
     </div>
   )
