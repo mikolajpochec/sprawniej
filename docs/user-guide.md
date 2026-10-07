@@ -178,13 +178,15 @@ A **view** is a saved set of filters with its own emoji, like "🐞 Open bugs" o
 sidebar to see them, and **New view** to make one. A view shows issues from the whole workspace or from one team.
 
 A view belongs to everyone. Changing its name, emoji, description, filters, grouping or List / Board saves straight
-away, for everyone. To remove a view, use **⋯ › Delete view**; its issues stay as they are.
+away, for everyone. In the list of views, click a view's emoji to change it, or use **⋯** to rename or delete it. On
+the view's own page, click its name or description to change them. Deleting a view leaves its issues as they are.
 
 ## Projects
 
 A **project** is a bigger goal made of several issues, like "New onboarding". **New project** on the Projects page
 starts one. On its page you can change its emoji, name and description in place, and set its status, who leads it,
-a target date and which teams work on it. The bar shows how many of its issues are done.
+a target date and which teams work on it. The bar shows how many of its issues are done. In the list of projects,
+click an emoji to change it, or use **⋯** to rename or delete a project.
 
 Add issues to a project from the project's page, or pick the project on any issue. Deleting a project
 (**⋯ › Delete project**) keeps its issues; they just no longer belong to a project.
@@ -210,10 +212,11 @@ themselves after a month, and unread ones after three.
 
 ## Moving over from Linear
 
-**Settings › Import from Linear** brings your teams, issues, comments, projects and labels over. You'll need a
+**Settings › Import from Linear** brings your teams, issues, comments, projects, labels and views over. You'll need a
 Linear personal API key (the first step shows where to make one). Pick the teams, check who's who, and press
 **Import**. Issue numbers stay the same (`ENG-123` is still `ENG-123`), and so do due dates and estimates. Issues
-finished long ago go straight to the archive. You can run it again later to bring in new
+finished long ago go straight to the archive. Views keep the filters that fit; the import tells you which views lost
+some filters, so you can check them. You can run it again later to bring in new
 changes; nothing is copied twice.
 
 ## Handy keys

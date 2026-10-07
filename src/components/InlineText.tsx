@@ -18,9 +18,12 @@ interface Props {
   lines?: 'one' | 'wrap' | 'many'
   /** an empty value isn't allowed (a name): leaving it empty puts the old one back */
   required?: boolean
+  autoFocus?: boolean
+  /** after you leave the field (renaming in a list goes back to showing the name) */
+  onDone?: () => void
 }
 
-export function InlineText({ value, onSave, placeholder, label, className, lines = 'one', required }: Props) {
+export function InlineText({ value, onSave, placeholder, label, className, lines = 'one', required, autoFocus, onDone }: Props) {
   const multiline = lines === 'many'
   const [text, setText] = useState(value)
   const [focused, setFocused] = useState(false)
@@ -58,6 +61,7 @@ export function InlineText({ value, onSave, placeholder, label, className, lines
       latest.current = value
       setText(value)
     }
+    onDone?.()
     setSeen(value)
   }
   function key(e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -73,7 +77,7 @@ export function InlineText({ value, onSave, placeholder, label, className, lines
   }
   const look = cn('w-full resize-none bg-transparent outline-none placeholder:text-muted-foreground/70', className)
   return lines === 'one' ? (
-    <input value={text} placeholder={placeholder} aria-label={label} onChange={change} onFocus={() => setFocused(true)} onBlur={blur} onKeyDown={key} className={look} />
+    <input value={text} placeholder={placeholder} aria-label={label} onChange={change} onFocus={(e) => (setFocused(true), autoFocus && e.target.select())} onBlur={blur} onKeyDown={key} className={look} autoFocus={autoFocus} />
   ) : (
     <textarea
       value={text}

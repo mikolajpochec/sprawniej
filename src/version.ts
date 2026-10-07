@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '1.1.0'
+export const APP_VERSION = '1.2.0'
 
 export interface Release {
   version: string
@@ -18,6 +18,16 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.2.0',
+    date: '2026-10-07',
+    title: 'Views come over from Linear',
+    notes: [
+      'Importing from Linear now brings your custom views too, with the filters that fit; the import names any view that lost some filters, so you can check it',
+      'Change a view’s or a project’s emoji right in its list, and rename or delete it from the ⋯ menu',
+      'Names and descriptions you can edit now light up when you point at them',
+    ],
+  },
   {
     version: '1.1.0',
     date: '2026-10-07',

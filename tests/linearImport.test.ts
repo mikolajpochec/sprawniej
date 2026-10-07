@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { parseFile } from '@/data/files'
 import { buildImport, emojiFor, freeKey, guessPerson, involvedUsers, mapStatus, rewriteLinks, type Existing, type ImportChoices } from '@/features/import/linearMap'
-import type { ArchivedIssue, Comment, Issue, Label, Project, Team } from '@/model/schema'
+import type { ArchivedIssue, Comment, Issue, Label, Project, Team, View } from '@/model/schema'
 import { linearFixture as data } from './fixtures/linear'
 
 const person = (login: string, name: string) => ({ login, githubId: 1, name, avatarUrl: '' })
@@ -61,6 +61,7 @@ function read(files: Map<string, string | null>): Existing {
     if (p.kind === 'label') ws.labels[p.value.id] = p.value as Label
     if (p.kind === 'project') ws.projects[p.value.id] = p.value as Project
     if (p.kind === 'comment') ws.comments[p.value.issue] = [...(ws.comments[p.value.issue] ?? []), p.value as Comment]
+    if (p.kind === 'view') (ws.views ??= {})[p.value.id] = p.value as View
   }
   return ws
 }
@@ -71,7 +72,7 @@ describe('building the import', () => {
   const byTitle = (t: string) => Object.values(ws.issues).find((i) => i.title === t)!
 
   test('only the chosen team, with numbers, statuses and people', () => {
-    expect(r.counts).toEqual({ teams: 1, labels: 2, projects: 1, issues: 3, comments: 2, archived: 0 })
+    expect(r.counts).toEqual({ teams: 1, labels: 2, projects: 1, issues: 3, comments: 2, archived: 0, views: 4 })
     expect(ws.teams.ENG).toMatchObject({ name: 'Engineering', emoji: '🚀' })
     expect(ws.teams.ENG.members.sort()).toEqual(['ana-n', 'bstone', 'mikolaj'])
     const charts = byTitle('Charts are slow')
@@ -105,6 +106,28 @@ describe('building the import', () => {
     expect(Object.keys(ws2.issues).sort()).toEqual(Object.keys(ws.issues).sort())
     expect(Object.values(ws2.issues).find((i) => i.number === 3)?.title).toBe('Old idea, renamed')
     expect(Object.keys(ws2.projects)).toEqual(Object.keys(ws.projects))
+  })
+
+  test('views: the chosen teams’ and the workspace’s, with the filters that fit', () => {
+    const views = Object.values(ws.views ?? {})
+    const byName = (n: string) => views.find((v) => v.name === n)!
+    expect(views.map((v) => v.name).sort()).toEqual(['Bob’s urgent work', 'Nobody’s', 'Open bugs', 'Recent launch work'])
+    const bug = Object.values(ws.labels).find((l) => l.name === 'Bug')!.id
+    expect(byName('Open bugs')).toMatchObject({ team: 'ENG', emoji: '🐞', owner: 'ana-n', description: 'Bugs still to fix', filters: { statuses: ['todo', 'in_progress', 'in_review'], labels: [bug] } })
+    expect(byName('Bob’s urgent work')).toMatchObject({ team: null, owner: 'bstone', filters: { assignees: ['bstone'], priorities: [1, 2], teams: ['ENG'], statuses: ['in_review'] } })
+    expect(byName('Nobody’s').filters).toEqual({ assignees: [null] })
+    expect(byName('Recent launch work').filters).toEqual({ projects: [Object.values(ws.projects)[0].id] })
+    expect(byName('Recent launch work').owner).toBe('mikolaj') // matched to no one: you
+    expect(r.inexactViews).toEqual(['Recent launch work'])
+  })
+
+  test('a second import updates views and keeps how they look', () => {
+    const v = Object.values(ws.views ?? {}).find((x) => x.name === 'Open bugs')!
+    const mine = { ...ws, me: 'mikolaj', views: { ...ws.views, [v.id]: { ...v, display: { ...v.display, layout: 'board' as const } } } }
+    const again = buildImport({ ...data, views: data.views!.map((x) => (x.id === 'v-bugs' ? { ...x, name: 'Open bugs!' } : x)) }, choices, mine, ids(), '2026-03-02T00:00:00.000Z')
+    const after = read(again.files).views!
+    expect(Object.keys(after).sort()).toEqual(Object.keys(ws.views!).sort())
+    expect(after[v.id]).toMatchObject({ name: 'Open bugs!', display: { layout: 'board' } })
   })
 
   test('issues finished long ago go straight into the archive; a second import leaves them there', () => {

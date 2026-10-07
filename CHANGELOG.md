@@ -3,6 +3,13 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.2.0: Views come over from Linear
+*2026-10-07*
+
+- Importing from Linear now brings your custom views too, with the filters that fit; the import names any view that lost some filters, so you can check it
+- Change a view’s or a project’s emoji right in its list, and rename or delete it from the ⋯ menu
+- Names and descriptions you can edit now light up when you point at them
+
 ## 1.1.0: Due dates, history, subscriptions and the archive
 *2026-10-07*
 

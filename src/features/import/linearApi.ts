@@ -68,6 +68,25 @@ export interface LComment {
   issue: { id: string } | null
 }
 
+/** a custom view; `filterData` is Linear's issue filter (fields, comparators like eq / in, and/or groups) */
+export interface LView {
+  id: string
+  name: string
+  description: string | null
+  icon: string | null
+  filterData: Record<string, unknown> | null
+  shared: boolean
+  team: { id: string } | null
+  owner: { id: string } | null
+  createdAt: string
+}
+/** a workflow state, so a view's "status is In Review" can be read */
+export interface LState {
+  id: string
+  name: string
+  type: string
+}
+
 export interface LinearData {
   org: { name: string; urlKey: string }
   teams: LTeam[]
@@ -76,6 +95,10 @@ export interface LinearData {
   projects: LProject[]
   issues: LIssue[]
   comments: LComment[]
+  views?: LView[]
+  states?: LState[]
+  /** Linear wouldn't share the views (the rest still comes over) */
+  viewsFailed?: boolean
 }
 
 export class LinearError extends Error {
@@ -155,7 +178,11 @@ async function readProjects(key: string): Promise<LProject[]> {
 }
 
 /** step 2: everything in the chosen teams. `progress` gets a line to show while it reads. */
-export async function readTeams(key: string, teamIds: string[], progress: (text: string) => void): Promise<Pick<LinearData, 'labels' | 'projects' | 'issues' | 'comments'>> {
+export async function readTeams(
+  key: string,
+  teamIds: string[],
+  progress: (text: string) => void,
+): Promise<Pick<LinearData, 'labels' | 'projects' | 'issues' | 'comments' | 'views' | 'states' | 'viewsFailed'>> {
   progress('Reading labels and projects…')
   const labels = await all<LLabel>(
     key,
@@ -183,5 +210,24 @@ export async function readTeams(key: string, teamIds: string[], progress: (text:
     (x: { comments: Page<LComment> }) => x.comments,
     (n) => progress(`Reading comments… ${n.toLocaleString()} so far`),
   )
-  return { labels, projects, issues, comments }
+  progress('Reading views…')
+  const extra = await readViews(key).catch((e: unknown) => {
+    if (e instanceof LinearError && e.badKey) throw e
+    return { views: [], states: [], viewsFailed: true }
+  })
+  return { labels, projects, issues, comments, ...extra }
+}
+
+/** custom views, and the workflow states their filters name; views are a nice extra, so a failure here isn't fatal */
+async function readViews(key: string): Promise<{ views: LView[]; states: LState[] }> {
+  const views = await all<LView>(
+    key,
+    `query($after: String) { customViews(first: 50, after: $after) { nodes { id name description icon filterData shared team { id } owner { id } createdAt } ${PAGE} } }`,
+    {},
+    (x: { customViews: Page<LView> }) => x.customViews,
+  )
+  const states = views.length
+    ? await all<LState>(key, `query($after: String) { workflowStates(first: 100, after: $after) { nodes { id name type } ${PAGE} } }`, {}, (x: { workflowStates: Page<LState> }) => x.workflowStates)
+    : []
+  return { views, states }
 }
