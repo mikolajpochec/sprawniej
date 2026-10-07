@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'wouter'
 import { Button } from '@/ui/button'
+import { useJoinTeams } from './joinTeamsState'
 import { endTour, tourDone, useTour } from './tourState'
 
 const STEPS = [
@@ -39,12 +40,13 @@ export function Tour() {
   const tip = step === null ? undefined : STEPS[step]
   const rect = useRect(tip?.anchor)
 
-  // the first time someone opens a team's issues
+  // the first time someone opens a team's issues (after picking their teams, if they're asked)
+  const joining = useJoinTeams((s) => s.open)
   useEffect(() => {
-    if (tourDone() || useTour.getState().step !== null || !/^\/team\/[^/]+\/issues/.test(location)) return
-    const t = setTimeout(() => !tourDone() && useTour.setState({ step: 0 }), 800)
+    if (joining || tourDone() || useTour.getState().step !== null || !/^\/team\/[^/]+\/issues/.test(location)) return
+    const t = setTimeout(() => !tourDone() && !useJoinTeams.getState().open && useTour.setState({ step: 0 }), 800)
     return () => clearTimeout(t)
-  }, [location])
+  }, [location, joining])
 
   useEffect(() => {
     if (step === null) return
