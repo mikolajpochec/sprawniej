@@ -8,8 +8,9 @@
 import { generateNKeysBetween } from 'fractional-indexing'
 import { archiveMonth, archiveToFile, commentToFile, issueToFile, jsonToFile, paths } from '@/data/files'
 import { STATUSES, type Priority, type StatusId } from '@/model/status'
-import { AUTO_ARCHIVE_MONTHS, type ArchivedIssue, type Comment, type Issue, type Label, type Person, type Project, type Team } from '@/model/schema'
+import { AUTO_ARCHIVE_MONTHS, type ArchivedIssue, type Comment, type Issue, type Label, type Person, type Project, type Team, type View } from '@/model/schema'
 import type { LIssue, LinearData, LTeam, LUser } from './linearApi'
+import { mapViewFilter, type FilterContext } from './linearFilters'
 
 // ---------- people ----------
 
@@ -119,14 +120,17 @@ export interface Existing {
   comments: Record<string, Comment[]>
   /** archived issues (loaded), so a second import knows them too */
   archive?: Record<string, ArchivedIssue>
+  views?: Record<string, View>
 }
 
 export interface ImportResult {
   files: Map<string, string | null>
   /** `archived`: of the issues, how many are in the archive (finished long ago, or archived here since) */
-  counts: { teams: number; labels: number; projects: number; issues: number; comments: number; archived: number }
+  counts: { teams: number; labels: number; projects: number; issues: number; comments: number; archived: number; views: number }
   /** imported issues that couldn't keep their number, because the team here already used it */
   renumbered: { from: string; to: string }[]
+  /** views whose Linear filters couldn't all come over, by name */
+  inexactViews: string[]
 }
 
 const linearIdOf = (x: object): string | undefined => {
@@ -158,7 +162,7 @@ function orderKeys(issues: LIssue[]): Map<string, string> {
 
 export function buildImport(data: LinearData, choices: ImportChoices, ws: Existing, newId: () => string, now: string): ImportResult {
   const files = new Map<string, string | null>()
-  const counts = { teams: 0, labels: 0, projects: 0, issues: 0, comments: 0, archived: 0 }
+  const counts = { teams: 0, labels: 0, projects: 0, issues: 0, comments: 0, archived: 0, views: 0 }
   const renumbered: ImportResult['renumbered'] = []
   const login = (u: { id: string } | null | undefined) => (u ? (choices.people[u.id] ?? null) : null)
   const teams = data.teams.filter((t) => choices.teamKeys[t.id])
@@ -351,5 +355,48 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
   for (const a of archived) if (touched.has(paths.archive(a.team, archiveMonth(a, a.archivedAt)))) into(a)
   for (const [path, records] of byFile) files.set(path, archiveToFile(records))
 
-  return { files, counts, renumbered }
+  // views: the chosen teams' and the whole workspace's, with the filters that can come over
+  const inexactViews: string[] = []
+  const viewsByLinear = byLinearId(Object.values(ws.views ?? {}))
+  const ctx: FilterContext = {
+    states: new Map((data.states ?? []).map((st) => [st.id, st])),
+    // someone matched to "no one" can't stand in a filter: "assigned to Bob" mustn't become "assigned to no one"
+    person: (id) => choices.people[id] ?? undefined,
+    label: (id) => labelId.get(id),
+    labelsNamed: (name) => {
+      const ids = data.labels.filter((l) => l.name.toLowerCase() === name.toLowerCase()).flatMap((l) => (labelId.has(l.id) ? [labelId.get(l.id)!] : []))
+      const here = labelsByName.get(name.toLowerCase())
+      return [...new Set([...ids, ...(here ? [here.id] : [])])]
+    },
+    project: (id) => projectId.get(id),
+    team: (idOrKey) => {
+      const t = teams.find((x) => x.id === idOrKey || x.key === idOrKey)
+      return t ? keyOf(t) : undefined
+    },
+  }
+  for (const v of data.views ?? []) {
+    if (v.team && !teamIds.has(v.team.id)) continue
+    const old = viewsByLinear.get(v.id)
+    const { filters, exact } = mapViewFilter(v.filterData, ctx)
+    if (v.team) delete filters.teams // a team's view is about that team already
+    const view: View & { linearId: string } = {
+      ...old,
+      id: old?.id ?? newId(),
+      name: v.name,
+      emoji: emojiFor(v.icon, old?.emoji ?? '🔎'),
+      description: v.description ?? '',
+      owner: (v.owner && choices.people[v.owner.id]) || old?.owner || ws.me,
+      team: v.team ? keyOf(v.team) : null,
+      filters,
+      // how it looks is chosen here (a later import keeps it)
+      display: old?.display ?? { layout: 'list', grouping: 'status', ordering: 'manual', showCompleted: true, showSubIssues: true },
+      createdAt: old?.createdAt ?? v.createdAt,
+      linearId: v.id,
+    }
+    files.set(paths.view(view.id), jsonToFile(view))
+    counts.views++
+    if (!exact) inexactViews.push(v.name)
+  }
+
+  return { files, counts, renumbered, inexactViews }
 }

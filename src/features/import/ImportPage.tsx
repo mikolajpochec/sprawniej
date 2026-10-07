@@ -57,6 +57,13 @@ function Panel({ step, title, children, footer }: { step: number; title: string;
   )
 }
 
+/** "412 issues, 980 comments and 6 views are here." */
+function doneText(c: ImportResult['counts']): string {
+  const n = (count: number, one: string, many: string) => `${count.toLocaleString()} ${count === 1 ? one : many}`
+  const parts = [n(c.issues, 'issue', 'issues'), n(c.comments, 'comment', 'comments'), ...(c.views ? [n(c.views, 'view', 'views')] : [])]
+  return `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)} are here.`
+}
+
 export function ImportPage() {
   useCrumbs([{ label: 'Settings', href: '/settings' }, { label: 'Import from Linear' }])
   const [stage, setStage] = useState<Stage>({ at: 'key' })
@@ -265,6 +272,7 @@ export function ImportPage() {
       ['comment', 'comments', c.comments],
       ['project', 'projects', c.projects],
       ['new label', 'new labels', c.labels],
+      ['view', 'views', c.views],
     ]
     return (
       <Panel
@@ -304,6 +312,14 @@ export function ImportPage() {
             archive. You can still find and open {c.archived === 1 ? 'it' : 'them'}.
           </p>
         )}
+        {plan.inexactViews.length > 0 && (
+          <p className="mt-5 text-sm text-muted-foreground">
+            {plan.inexactViews.length === 1 ? 'One view has' : `${plan.inexactViews.length} views have`} filters that can’t come over exactly (like “is not”, dates or
+            cycles), so {plan.inexactViews.length === 1 ? 'it keeps' : 'they keep'} only the parts that fit: {plan.inexactViews.map((n) => `“${n}”`).join(', ')}. Check{' '}
+            {plan.inexactViews.length === 1 ? 'it' : 'them'} after the import.
+          </p>
+        )}
+        {stage.data.viewsFailed && <p className="mt-5 text-sm text-muted-foreground">Linear didn’t share its views with this key, so only issues and the rest come over.</p>}
         {plan.renumbered.length > 0 && (
           <p className="mt-5 text-sm text-muted-foreground">
             {plan.renumbered.length === 1 ? 'One issue gets' : `${plan.renumbered.length} issues get`} a new number, because the team here already
@@ -334,8 +350,7 @@ export function ImportPage() {
     return (
       <Panel step={4} title="All done">
         <p className="flex items-center gap-2">
-          <CheckCircle2 className="size-5 text-status-review" /> {stage.result.counts.issues.toLocaleString()} issues and {stage.result.counts.comments.toLocaleString()}{' '}
-          comments are here.
+          <CheckCircle2 className="size-5 text-status-review" /> {doneText(stage.result.counts)}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           {stage.keys.map((k) => (

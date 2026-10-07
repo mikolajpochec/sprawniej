@@ -47,6 +47,18 @@ export const linearFixture: LinearData = {
     issue({ id: 'i-3', number: 3, title: 'Old idea', sortOrder: 20, state: { name: 'Triage', type: 'triage' }, creator: { id: 'u-old' } }),
     issue({ id: 'i-9', number: 9, title: 'New logo', team: { id: 't-des' }, state: { name: 'Cancelled', type: 'canceled' }, canceledAt: '2026-03-01T00:00:00.000Z' }),
   ],
+  views: [
+    { id: 'v-bugs', name: 'Open bugs', description: 'Bugs still to fix', icon: 'Bug', shared: true, team: { id: 't-eng' }, owner: { id: 'u-ana' }, createdAt: '2026-01-05T00:00:00.000Z',
+      filterData: { and: [{ state: { type: { in: ['unstarted', 'started'] } } }, { labels: { some: { id: { eq: 'l-bug' } } } }] } },
+    { id: 'v-bob', name: 'Bob’s urgent work', description: null, icon: null, shared: true, team: null, owner: { id: 'u-bob' }, createdAt: '2026-01-05T00:00:00.000Z',
+      filterData: { assignee: { id: { eq: 'u-bob' } }, priority: { in: [1, 2] }, team: { key: { eq: 'ENG' } }, state: { id: { eq: 's-review' } } } },
+    { id: 'v-fuzzy', name: 'Recent launch work', description: null, icon: null, shared: true, team: { id: 't-eng' }, owner: { id: 'u-old' }, createdAt: '2026-01-05T00:00:00.000Z',
+      filterData: { state: { type: { neq: 'completed' } }, createdAt: { gt: 'P-2W' }, project: { id: { eq: 'p-launch' } } } },
+    { id: 'v-free', name: 'Nobody’s', description: null, icon: null, shared: false, team: { id: 't-eng' }, owner: null, createdAt: '2026-01-05T00:00:00.000Z',
+      filterData: { assignee: { null: true } } },
+    { id: 'v-des', name: 'Design only', description: null, icon: null, shared: true, team: { id: 't-des' }, owner: null, createdAt: '2026-01-05T00:00:00.000Z', filterData: {} },
+  ],
+  states: [{ id: 's-review', name: 'In Review', type: 'started' }],
   comments: [
     { id: 'c-1', body: 'On it', createdAt: '2026-01-03T00:00:00.000Z', user: { id: 'u-bob', name: 'Bob Stone' }, issue: { id: 'i-1' } },
     { id: 'c-2', body: 'Back in my day', createdAt: '2026-01-04T00:00:00.000Z', user: { id: 'u-old', name: 'Old Timer' }, issue: { id: 'i-1' } },
