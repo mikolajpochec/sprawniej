@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '1.3.0'
+export const APP_VERSION = '1.3.1'
 
 export interface Release {
   version: string
@@ -18,6 +18,12 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.3.1',
+    date: '2026-10-07',
+    title: 'Emptied workspaces open again',
+    notes: ['A workspace whose files were all removed now offers to set it up again, instead of saying you have no access to it'],
+  },
   {
     version: '1.3.0',
     date: '2026-10-07',
