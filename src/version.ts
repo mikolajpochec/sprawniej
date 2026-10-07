@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '1.2.1'
+export const APP_VERSION = '1.3.0'
 
 export interface Release {
   version: string
@@ -18,6 +18,16 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.3.0',
+    date: '2026-10-07',
+    title: 'A Subscribers filter, and everyone comes over from Linear',
+    notes: [
+      'Filter by Subscribers to see the issues someone follows: ones they made, are assigned to, commented on, were mentioned in or subscribed to',
+      'Importing from Linear brings people who aren’t here yet, marked “hasn’t joined”: their issues, comments and views stay theirs, and move to their account once they join and you import again',
+      'Every Linear view about a person comes over now, including ones that use subscribers, and who’s subscribed to each issue comes too',
+    ],
+  },
   {
     version: '1.2.1',
     date: '2026-10-07',

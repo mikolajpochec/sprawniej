@@ -17,7 +17,8 @@ import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { LinearError, readBasics, readTeams, type LinearData } from './linearApi'
-import { buildImport, emojiFor, guessPerson, involvedUsers, type ImportChoices, type ImportResult } from './linearMap'
+import { buildImport, emojiFor, guessPerson, guestLogins, involvedUsers, linearName, type ImportChoices, type ImportResult } from './linearMap'
+import { isGuest } from '@/model/schema'
 
 type Stage =
   | { at: 'key' }
@@ -163,8 +164,11 @@ export function ImportPage() {
                 run('Reading…', async () => {
                   const rest = await readTeams(key, Object.keys(picked), setBusy)
                   const data: LinearData = { ...basics, ...rest }
-                  const here = Object.values(ws.people)
-                  setPeople(Object.fromEntries(involvedUsers(data).map((u) => [u.id, people[u.id] !== undefined ? people[u.id] : guessPerson(u, here)])))
+                  const here = Object.values(ws.people).filter((p) => !isGuest(p.login))
+                  const users = involvedUsers(data)
+                  const guests = guestLogins(users, ws.people)
+                  // nobody here by that name: they come as someone who hasn't joined, so their work stays theirs
+                  setPeople(Object.fromEntries(users.map((u) => [u.id, people[u.id] !== undefined ? people[u.id] : (guessPerson(u, here) ?? guests.get(u.id)!)])))
                   setStage({ at: 'people', data })
                 })
               }
@@ -218,7 +222,10 @@ export function ImportPage() {
 
   if (stage.at === 'people') {
     const users = involvedUsers(stage.data)
-    const here = Object.values(ws.people).sort((a, b) => (a.name || a.login).localeCompare(b.name || b.login))
+    const guests = guestLogins(users, ws.people)
+    const here = Object.values(ws.people)
+      .filter((p) => !isGuest(p.login))
+      .sort((a, b) => (a.name || a.login).localeCompare(b.name || b.login))
     return (
       <Panel
         step={2}
@@ -233,8 +240,8 @@ export function ImportPage() {
         }
       >
         <p className="text-muted-foreground">
-          We matched people by name. Fix anyone we got wrong. People without a match bring their comments with their name on them, and their issues
-          come in unassigned.
+          We matched people by name. Fix anyone we got wrong. Someone who isn't here yet still comes over with their name, so their issues, comments
+          and views stay theirs. Invite them later and import again: everything moves to their account.
         </p>
         <ul className="mt-5 flex flex-col divide-y rounded-lg border">
           {users.map((u) => (
@@ -248,7 +255,10 @@ export function ImportPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NOBODY}>No one here</SelectItem>
+                  <SelectItem value={guests.get(u.id)!}>
+                    <PersonAvatar login={guests.get(u.id)} className="size-5 text-[8px]" /> {linearName(u)} (hasn’t joined)
+                  </SelectItem>
+                  <SelectItem value={NOBODY}>No one</SelectItem>
                   {here.map((p) => (
                     <SelectItem key={p.login} value={p.login}>
                       <PersonAvatar person={p} className="size-5 text-[8px]" /> {p.name || p.login}
@@ -316,7 +326,7 @@ export function ImportPage() {
           <div className="mt-5 text-sm text-muted-foreground">
             <p>
               {plan.skippedViews.length === 1 ? 'One view stays' : `${plan.skippedViews.length} views stay`} in Linear: none of {plan.skippedViews.length === 1 ? 'its' : 'their'} filters can
-              come over (like subscribers, “is not”, or people who aren’t matched to anyone here), and without them {plan.skippedViews.length === 1 ? 'it' : 'they'} would show
+              come over (like “is not”, dates, or people you set to “No one”), and without them {plan.skippedViews.length === 1 ? 'it' : 'they'} would show
               every issue.
             </p>
             <p className="mt-1 text-foreground/80">{plan.skippedViews.map((n) => `“${n}”`).join(', ')}</p>

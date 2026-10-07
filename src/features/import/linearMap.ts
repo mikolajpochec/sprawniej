@@ -8,8 +8,8 @@
 import { generateNKeysBetween } from 'fractional-indexing'
 import { archiveMonth, archiveToFile, commentToFile, issueToFile, jsonToFile, paths } from '@/data/files'
 import { STATUSES, type Priority, type StatusId } from '@/model/status'
-import { AUTO_ARCHIVE_MONTHS, type ArchivedIssue, type Comment, type Issue, type Label, type Person, type Project, type Team, type View } from '@/model/schema'
-import type { LIssue, LinearData, LLabel, LTeam, LUser } from './linearApi'
+import { AUTO_ARCHIVE_MONTHS, isGuest, type ArchivedIssue, type Comment, type Issue, type Label, type Person, type Project, type Team, type View } from '@/model/schema'
+import { SUBSCRIBERS_READ, type LIssue, type LinearData, type LLabel, type LTeam, type LUser } from './linearApi'
 import { mapViewFilter, type FilterContext } from './linearFilters'
 
 // ---------- people ----------
@@ -32,12 +32,62 @@ export function guessPerson(u: LUser, people: Person[]): string | null {
   return hit?.login ?? null
 }
 
-/** the Linear people who show up in these issues and comments (assignees, creators, commenters) */
-export function involvedUsers(data: Pick<LinearData, 'users' | 'issues' | 'comments'>): LUser[] {
+/** Linear user ids a view's filter names (assignee, subscribers, creator…) */
+export function viewPeople(filterData: unknown): string[] {
+  const out: string[] = []
+  const walk = (x: unknown, inPerson: boolean) => {
+    if (typeof x === 'string' && inPerson) out.push(x)
+    else if (Array.isArray(x)) x.forEach((y) => walk(y, inPerson))
+    else if (x && typeof x === 'object')
+      for (const [k, v] of Object.entries(x)) walk(v, inPerson || k === 'assignee' || k === 'subscribers' || k === 'creator')
+  }
+  walk(filterData, false)
+  return out
+}
+
+/** the Linear people who show up in these issues, comments and views (assignees, creators, commenters, subscribers) */
+export function involvedUsers(data: Pick<LinearData, 'users' | 'issues' | 'comments'> & { views?: LinearData['views'] }): LUser[] {
   const ids = new Set<string>()
-  for (const i of data.issues) for (const u of [i.assignee, i.creator]) if (u) ids.add(u.id)
+  for (const i of data.issues) {
+    for (const u of [i.assignee, i.creator]) if (u) ids.add(u.id)
+    for (const u of i.subscribers?.nodes ?? []) ids.add(u.id)
+  }
   for (const c of data.comments) if (c.user) ids.add(c.user.id)
+  for (const v of data.views ?? []) for (const id of viewPeople(v.filterData)) ids.add(id)
   return data.users.filter((u) => ids.has(u.id)).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** how a Linear person is called: their name, unless Linear only knows their e-mail address */
+export const linearName = (u: LUser): string => (u.name.includes('@') ? u.displayName || u.name.split('@')[0] : u.name || u.displayName)
+
+/**
+ * The login each Linear person gets if nobody here is them: `~jan-kowalski` (see `isGuest`). Someone an earlier
+ * import already brought keeps theirs; two people with the same name get told apart.
+ */
+export function guestLogins(users: LUser[], people: Record<string, Person>): Map<string, string> {
+  const out = new Map<string, string>()
+  const taken = new Set(Object.keys(people))
+  for (const p of Object.values(people)) {
+    const id = linearIdOf(p)
+    if (id && isGuest(p.login)) out.set(id, p.login)
+  }
+  for (const u of users) {
+    if (out.has(u.id)) continue
+    const slug =
+      linearName(u)
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/ł/g, 'l')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 30) || 'someone'
+    let login = `~${slug}`
+    if (taken.has(login)) login = `~${slug}-${u.id.replace(/[^a-z0-9]/gi, '').slice(0, 4).toLowerCase()}`
+    taken.add(login)
+    out.set(u.id, login)
+  }
+  return out
 }
 
 // ---------- statuses, teams, emoji ----------
@@ -106,13 +156,15 @@ export function rewriteLinks(md: string, imported: Set<string>): string {
 export interface ImportChoices {
   /** Linear team id → the key it gets here (its own key, or another one when that is taken) */
   teamKeys: Record<string, string>
-  /** Linear user id → GitHub login here, or null for nobody */
+  /** Linear user id → GitHub login here, a `~name` (someone who hasn't joined, see `guestLogins`), or null for nobody */
   people: Record<string, string | null>
 }
 
 /** the workspace as it is now */
 export interface Existing {
   me: string
+  /** everyone here, including people an earlier import brought who haven't joined */
+  people?: Record<string, Person>
   teams: Record<string, Team>
   issues: Record<string, Issue>
   labels: Record<string, Label>
@@ -172,9 +224,28 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
   const issues = data.issues.filter((i) => teamIds.has(i.team.id))
   const keyOf = (t: { id: string }) => choices.teamKeys[t.id]
 
+  // people who haven't joined: a file each, so their name and picture show (made once; later imports leave it)
+  const people = ws.people ?? {}
+  for (const u of data.users) {
+    const l = choices.people[u.id]
+    if (!isGuest(l) || people[l!]) continue
+    const guest: Person & { linearId: string } = { login: l!, githubId: 0, name: linearName(u), avatarUrl: u.avatarUrl ?? '', linearId: u.id }
+    files.set(paths.person(guest.login), jsonToFile(guest))
+  }
+  // someone who has joined since an earlier import and is matched now: what pointed at them moves to their account
+  const relinked = new Map<string, string>()
+  for (const p of Object.values(people)) {
+    const id = linearIdOf(p)
+    const match = id ? choices.people[id] : undefined
+    if (!isGuest(p.login) || !match || isGuest(match)) continue
+    relinked.set(p.login, match)
+    files.set(paths.person(p.login), null)
+  }
+  const relink = (l: string) => relinked.get(l) ?? l
+
   // teams: new ones get a file; ones that are already here stay as they are
   const members = new Map<string, Set<string>>()
-  for (const i of issues) for (const p of [login(i.assignee), login(i.creator)]) if (p) members.set(i.team.id, (members.get(i.team.id) ?? new Set()).add(p))
+  for (const i of issues) for (const p of [login(i.assignee), login(i.creator)]) if (p && !isGuest(p)) members.set(i.team.id, (members.get(i.team.id) ?? new Set()).add(p))
   teams.forEach((t: LTeam, n) => {
     const here = ws.teams[keyOf(t)]
     if (here) {
@@ -294,8 +365,25 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
     d.setMonth(d.getMonth() - months)
     return Number.isNaN(d.getTime()) ? null : d.toISOString()
   }
+  // who commented on what, so subscribers who follow an issue anyway (by commenting) aren't listed twice
+  const commenters = new Map<string, Set<string>>()
+  for (const c of data.comments) {
+    const who = login(c.user)
+    if (c.issue && who) commenters.set(c.issue.id, (commenters.get(c.issue.id) ?? new Set()).add(who))
+  }
   for (const { li, team, number } of plan) {
     const old = issuesByLinear.get(li.id)
+    const assignee = login(li.assignee)
+    const createdBy = login(li.creator) ?? (old?.createdBy && relink(old.createdBy)) ?? ws.me
+    const implicit = new Set([assignee, createdBy, ...(commenters.get(li.id) ?? [])])
+    // Linear's subscribers, plus anyone who subscribed here since an earlier import
+    const theirs = new Set((li.subscribers?.nodes ?? []).map((u) => login(u)).filter((l): l is string => !!l))
+    const subscribers = [...new Set([...(old?.subscribers ?? []).map(relink), ...theirs])].filter((l) => !implicit.has(l)).sort()
+    // Linear subscribes creators, assignees and commenters by itself: one missing from its list unsubscribed there
+    // (only when the list came in whole)
+    const whole = !!li.subscribers && li.subscribers.nodes.length < SUBSCRIBERS_READ
+    const left = whole ? [...implicit].filter((l): l is string => !!l && !theirs.has(l)) : []
+    const unsubscribed = [...new Set([...(old?.unsubscribed ?? []).map(relink), ...left])].filter((l) => !theirs.has(l)).sort()
     const issue: Issue & { linearId: string } = {
       ...old,
       id: idOf.get(li.id)!,
@@ -305,14 +393,16 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
       description: rewriteLinks(li.description ?? '', refs).replace(/\s+$/, ''),
       status: mapStatus(li.state),
       priority: (li.priority >= 0 && li.priority <= 4 ? li.priority : 0) as Priority,
-      assignee: login(li.assignee),
+      assignee,
       labels: [...new Set(li.labels.nodes.map((l) => labelId.get(l.id)).filter((x): x is string => !!x))],
       project: li.project ? (projectId.get(li.project.id) ?? null) : null,
       parent: li.parent ? (idOf.get(li.parent.id) ?? null) : null,
       ...(li.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(li.dueDate) ? { dueDate: li.dueDate } : old?.dueDate && { dueDate: null }),
       ...(typeof li.estimate === 'number' && li.estimate >= 0 ? { estimate: li.estimate } : old?.estimate != null && { estimate: null }),
       sortOrder: order.get(li.id)!,
-      createdBy: login(li.creator) ?? old?.createdBy ?? ws.me,
+      createdBy,
+      ...(subscribers.length ? { subscribers } : old?.subscribers && { subscribers: [] }),
+      ...(unsubscribed.length ? { unsubscribed } : old?.unsubscribed && { unsubscribed: [] }),
       createdAt: li.createdAt,
       updatedAt: li.updatedAt,
       completedAt: li.completedAt ?? li.canceledAt ?? null,
@@ -350,6 +440,22 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
     counts.comments++
   }
 
+  // issues made here that pointed at someone who has joined since: move them over too
+  if (relinked.size) {
+    const imported = new Set([...pathOfIssue.values()].map((i) => i.id))
+    for (const i of Object.values(ws.issues)) {
+      if (imported.has(i.id)) continue
+      const next = {
+        ...i,
+        assignee: i.assignee && relink(i.assignee),
+        createdBy: relink(i.createdBy),
+        ...(i.subscribers && { subscribers: i.subscribers.map(relink) }),
+        ...(i.unsubscribed && { unsubscribed: i.unsubscribed.map(relink) }),
+      }
+      if (JSON.stringify(next) !== JSON.stringify(i)) files.set(paths.issue(next), issueToFile(next))
+    }
+  }
+
   // archived issues, one file per team and month, next to what those files hold already
   const byFile = new Map<string, ArchivedIssue[]>()
   const into = (a: ArchivedIssue) => {
@@ -377,6 +483,24 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
       const t = teams.find((x) => x.id === idOrKey || x.key === idOrKey)
       return t ? keyOf(t) : undefined
     },
+  }
+  if (relinked.size) {
+    const fromLinear = new Set((data.views ?? []).map((v) => v.id))
+    for (const v of Object.values(ws.views ?? {})) {
+      const id = linearIdOf(v)
+      if (id && fromLinear.has(id)) continue
+      const f = v.filters
+      const next: View = {
+        ...v,
+        owner: relink(v.owner),
+        filters: {
+          ...f,
+          ...(f.assignees && { assignees: f.assignees.map((l) => l && relink(l)) }),
+          ...(f.subscribers && { subscribers: f.subscribers.map(relink) }),
+        },
+      }
+      if (JSON.stringify(next) !== JSON.stringify(v)) files.set(paths.view(v.id), jsonToFile(next))
+    }
   }
   for (const v of data.views ?? []) {
     if (v.team && !teamIds.has(v.team.id)) continue

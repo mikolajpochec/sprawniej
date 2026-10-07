@@ -8,7 +8,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { PersonAvatar } from '@/components/Avatar'
 import type { PickerItem } from '@/components/Picker'
 import { issueRef, useData } from '@/data/store'
-import type { Issue } from '@/model/schema'
+import { isGuest, type Issue } from '@/model/schema'
 import { ESTIMATES, PRIORITY_ORDER, PRIORITY_NAMES, STATUSES, type Priority, type StatusId } from '@/model/status'
 import { EstimateIcon } from './DueDate'
 import { estimateName } from './format'
@@ -29,8 +29,14 @@ export function usePeopleItems(): PickerItem<string | null>[] {
     () => [
       { value: null, label: 'No one', icon: <PersonAvatar login={null} /> },
       ...[...people]
-        .sort((a, b) => (a.login === me ? -1 : b.login === me ? 1 : a.name.localeCompare(b.name)))
-        .map((p) => ({ value: p.login as string | null, label: p.login === me ? `${p.name} (you)` : p.name, keywords: [p.login], icon: <PersonAvatar person={p} /> })),
+        // you first, then everyone by name, then people who haven't joined yet
+        .sort((a, b) => (a.login === me ? -1 : b.login === me ? 1 : Number(isGuest(a.login)) - Number(isGuest(b.login)) || a.name.localeCompare(b.name)))
+        .map((p) => ({
+          value: p.login as string | null,
+          label: p.login === me ? `${p.name} (you)` : isGuest(p.login) ? `${p.name} (hasn’t joined)` : p.name,
+          keywords: [p.login],
+          icon: <PersonAvatar person={p} />,
+        })),
     ],
     [people, me],
   )

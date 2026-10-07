@@ -6,9 +6,9 @@
  * - status: everyone following the issue, when its status changes
  * People follow an issue they created, are assigned to, commented on or were mentioned in, and any issue they
  * subscribed to; unsubscribing stops all of that. Nobody hears about their own changes, and only people in the
- * workspace get notes.
+ * workspace get notes (not people from Linear who haven't joined).
  */
-import type { Comment, InboxItem, Issue, Person } from '@/model/schema'
+import { isGuest, type Comment, type InboxItem, type Issue, type Person } from '@/model/schema'
 import type { StatusId } from '@/model/status'
 import { mentionedLogins, newMentions } from './mentions'
 
@@ -48,7 +48,8 @@ function keep(notes: Note[], actor: string, people: Record<string, Person>): Not
   const seen = new Set<string>()
   return notes.filter((n) => {
     const key = `${n.to}:${n.type}`
-    if (n.to === actor || !people[n.to] || seen.has(key)) return false
+    // people from Linear who haven't joined have no inbox
+    if (n.to === actor || !people[n.to] || isGuest(n.to) || seen.has(key)) return false
     seen.add(key)
     return true
   })

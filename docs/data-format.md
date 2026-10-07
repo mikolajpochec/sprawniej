@@ -12,6 +12,7 @@ and needs a migration.
 ```
 sprawniej.json                           the workspace: name, format version
 people/<login>.json                      one person (written by that person)
+people/~<name>.json                      someone the Linear import brought who hasn't joined (written by the import)
 labels/<id>.json                         one label
 teams/<KEY>/team.json                    one team
 teams/<KEY>/issues/<id>.md               one issue
@@ -42,6 +43,14 @@ second import updates them instead of making copies (docs/linear-import.md).
 
 ```json
 { "login": "mikolajpochec", "githubId": 123456, "name": "Mikołaj Pocheć", "avatarUrl": "https://avatars.githubusercontent.com/u/123456" }
+```
+
+Someone the Linear import brought who isn't in the workspace yet has a login starting with `~`, which no GitHub
+login can, and `githubId: 0`. Issues, comments and views can point at them; they get no inbox notes. A later import
+that matches them to a GitHub person rewrites what pointed at them and removes the file.
+
+```json
+{ "login": "~jan-kowalski", "githubId": 0, "name": "Jan Kowalski", "avatarUrl": "", "linearId": "…" }
 ```
 
 ## teams/ENG/team.json
@@ -174,7 +183,8 @@ Only the author edits or deletes their comment.
 }
 ```
 
-`team: null` makes a workspace view. Filters left out match everything. Inside one filter any value matches;
+`team: null` makes a workspace view. Filters left out match everything. Filters: `statuses`, `assignees` (`null` =
+no one), `subscribers` (people following the issue), `priorities`, `labels`, `projects` (`null` = none), `teams`. Inside one filter any value matches;
 different filters must all match. `grouping`: `status`, `assignee`, `priority`, `project`, `none`.
 `ordering`: `manual`, `priority`, `updated`, `created`.
 

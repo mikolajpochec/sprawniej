@@ -3,6 +3,13 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.3.0: A Subscribers filter, and everyone comes over from Linear
+*2026-10-07*
+
+- Filter by Subscribers to see the issues someone follows: ones they made, are assigned to, commented on, were mentioned in or subscribed to
+- Importing from Linear brings people who aren’t here yet, marked “hasn’t joined”: their issues, comments and views stay theirs, and move to their account once they join and you import again
+- Every Linear view about a person comes over now, including ones that use subscribers, and who’s subscribed to each issue comes too
+
 ## 1.2.1: Views from Linear keep their filters
 *2026-10-07*
 

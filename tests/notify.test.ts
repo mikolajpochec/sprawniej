@@ -20,6 +20,16 @@ beforeEach(() => {
   useData.setState({ ...EMPTY, me: people.ana, people })
 })
 
+describe('people from Linear who haven’t joined', () => {
+  test('follow and can be assigned, but get no inbox notes', () => {
+    const guest: Person = { login: '~jan', githubId: 0, name: 'Jan', avatarUrl: '' }
+    const all = { ...people, '~jan': guest }
+    const issue = { id: 'i', team: 'ENG', number: 1, title: 't', description: '', status: 'todo', priority: 0, assignee: '~jan', labels: [], project: null, parent: null, sortOrder: 'a0', createdBy: 'ana', createdAt: 'x', updatedAt: 'x', completedAt: null } as Issue
+    expect(followers(issue, [], all)).toContain('~jan')
+    expect(issueNotes(null, issue, 'bob', all)).toEqual([]) // assigned, but has no inbox
+  })
+})
+
 describe('mentions', () => {
   test('only people in the workspace, not in code or e-mail addresses', () => {
     expect(mentionedLogins('hi @bob and @nobody, mail me@cy.dev, `@cy` and\n```\n@cy\n```', people)).toEqual(['bob'])

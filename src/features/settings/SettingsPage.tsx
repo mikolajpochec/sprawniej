@@ -8,7 +8,7 @@ import { useCrumbs } from '@/app/chrome'
 import { signOutEverywhere } from '@/app/signOut'
 import { PersonAvatar } from '@/components/Avatar'
 import { renameWorkspace, setAutoArchive } from '@/data/actions'
-import { AUTO_ARCHIVE_MONTHS } from '@/model/schema'
+import { AUTO_ARCHIVE_MONTHS, isGuest } from '@/model/schema'
 import { useData } from '@/data/store'
 import { inviteMessage, joinLink } from '@/features/onboarding/joinLink'
 import { Problem } from '@/features/onboarding/Step'
@@ -114,7 +114,13 @@ function People() {
           <li key={p.login} className="flex items-center gap-3 py-1.5">
             <PersonAvatar person={p} className="size-8 text-xs" />
             <span className="font-medium">{p.name}</span>
-            <span className="text-muted-foreground">@{p.login}</span>
+            {isGuest(p.login) ? (
+              <span className="rounded-full border px-2 text-xs leading-5 text-muted-foreground" title="Their issues and comments came with the import. Invite them, then import again to link everything to their account.">
+                From Linear, hasn't joined
+              </span>
+            ) : (
+              <span className="text-muted-foreground">@{p.login}</span>
+            )}
           </li>
         ))}
         {sent.map((i) => (

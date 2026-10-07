@@ -38,6 +38,9 @@ export interface LProject {
   lead: { id: string } | null
   teams: { nodes: { id: string }[] }
 }
+/** how many subscribers of an issue are read; a full page means there may be more */
+export const SUBSCRIBERS_READ = 30
+
 export interface LIssue {
   id: string
   number: number
@@ -59,6 +62,8 @@ export interface LIssue {
   project: { id: string } | null
   parent: { id: string } | null
   labels: { nodes: { id: string }[] }
+  /** people subscribed to it (Linear subscribes creators, assignees and commenters by itself too) */
+  subscribers?: { nodes: { id: string }[] }
 }
 export interface LComment {
   id: string
@@ -195,7 +200,7 @@ export async function readTeams(
     key,
     `query($after: String, $teams: [ID!]) { issues(first: 50, after: $after, filter: { team: { id: { in: $teams } } }) { nodes {
       id number title description priority sortOrder dueDate estimate createdAt updatedAt completedAt canceledAt
-      state { name type } team { id } assignee { id } creator { id } project { id } parent { id } labels(first: 20) { nodes { id } }
+      state { name type } team { id } assignee { id } creator { id } project { id } parent { id } labels(first: 20) { nodes { id } } subscribers(first: ${SUBSCRIBERS_READ}) { nodes { id } }
     } ${PAGE} } }`,
     { teams: teamIds },
     (x: { issues: Page<LIssue> }) => x.issues,
