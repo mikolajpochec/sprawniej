@@ -11,8 +11,10 @@ from the browser (Linear allows that), so nothing passes through a server of our
    `ENG-123` stays `ENG-123`. If a team here already uses that key, the issues join that team (handy for the
    first team made during setup); type another key to make a new team instead. If that team already has an issue
    with the same number, the imported one gets the next free number, and the check step lists these.
-3. **People**: Linear people are matched to GitHub people in the workspace by name. You can fix any match or leave
-   someone unmatched (their issues come in unassigned, and their comments say who wrote them).
+3. **People**: Linear people are matched to GitHub people in the workspace by name. You can fix any match. Someone
+   with no match comes as a person who **hasn't joined** (`people/~jan-kowalski.json`): their issues stay assigned to
+   them, their comments are theirs and views about them work. They get no inbox notes and can't be @mentioned. You
+   can also pick **No one**: their issues come in unassigned, and their comments say who wrote them.
 4. **Check**: how many teams, issues, comments, projects, labels and views will come over, and which views can't
    keep all their filters.
 5. **Import**: everything is written as files and saved as `Import from Linear: 412 issues`. Big imports are
@@ -29,12 +31,13 @@ The code: `src/features/import/linearApi.ts` reads Linear, `linearMap.ts` turns 
 | Workflow state | Status: by name first (`In Review`), then by Linear's state type (`started` → In Progress, `unstarted` → Todo, `backlog` → Backlog, `completed` → Done, `canceled` → Canceled). `Triage` becomes Backlog. |
 | Priority 0 to 4 | Same numbers |
 | Issue number, title, description (Markdown) | Same |
-| Assignee | Matched GitHub person, or no one |
+| Assignee, creator | Matched GitHub person, the person who hasn't joined, or no one |
+| Subscribers | Subscribers (people who follow it anyway, by creating it, being assigned or commenting, aren't listed twice) |
 | Labels | Labels (group labels are flattened: `Area/Charts` becomes `Area: Charts`) |
 | Project (name, icon, description, state, lead, target date) | Project |
 | Parent issue | Parent (sub-issues) |
 | Sort order | `sortOrder`, keeping Linear's order |
-| Comments | Comments, with the original author and date. Unmatched authors are shown as "From Linear: Name". |
+| Comments | Comments, with the original author and date. Authors set to "No one" are shown as "From Linear: Name". |
 | Due date, estimate | Kept (any estimate number stays as it is) |
 | Created, updated, completed dates | Kept |
 | Custom view (name, icon, description, filters) | View: a team's view stays with that team, a workspace view shows the whole workspace. See below for filters. |
@@ -61,7 +64,9 @@ A view's filters come over when they say "is" or "is any of" about these, joined
 | Linear filter | Sprawniej filter |
 | --- | --- |
 | Status (a state, by id or name, or a type such as "started") | Status (a type brings every status of that kind) |
-| Assignee (a person, or "no assignee") | Assignee; a person nobody was matched to can't come over |
+| Assignee (a person, or "no assignee") | Assignee; someone set to "No one" can't come over |
+| Subscribers | Subscribers: people following the issue (who made it, are assigned, commented, were mentioned or subscribed) |
+| "Assigned to Jan" or "Jan is subscribed" | Subscribers: Jan (people follow what they're assigned to) |
 | Priority | Priority |
 | Labels (a label, or every label in a group) | Labels. Labels a view needs come over even if no issue uses them yet. |
 | Project (a project, or "no project") | Project |
@@ -70,8 +75,8 @@ A view's filters come over when they say "is" or "is any of" about these, joined
 Linear's app saves each filter as a list of choices inside the field (`assignee: { or: [{ id: { in: [...] } }] }`), and
 a label filter also matches the label's sub-labels (`{ or: [{ name: … }, { parent: { name: … } }] }`); both are read.
 
-Anything else is left out: subscribers, "is not", "or" across different fields, dates, cycles, creator, text search
-and so on. The view still comes over with the rest of its filters, so it may not show quite the same issues as in
+Anything else is left out: "is not", other "or"s across different fields, dates, cycles, creator, text search and
+so on. The view still comes over with the rest of its filters, so it may not show quite the same issues as in
 Linear. If none of a view's filters can come over, the view stays in Linear instead of arriving as a view that shows
 every issue (and a view an earlier import made for it is removed). The check step names both kinds of views.
 
@@ -82,6 +87,8 @@ views from Linear fails, the import goes on without them and says so.
 
 Each imported file remembers its Linear id (`linearId`), and so does a team that took in a Linear team. Running the
 import again picks those teams by itself and updates what came over instead of making copies, so you can import
-once early and again on switch-over day. Linear's version wins for imported issues and views (except a view's layout,
+once early and again on switch-over day. Invite people before switch-over day: when the next import matches someone
+who hadn't joined to their GitHub account, everything that pointed at them (imported or made here since, issues and
+views) moves to their account, and their `~` file goes away. Linear's version wins for imported issues and views (except a view's layout,
 which stays as you set it); issues and views made here are left alone.
 Issues deleted in Linear stay here, and issues archived here since the last import stay archived.

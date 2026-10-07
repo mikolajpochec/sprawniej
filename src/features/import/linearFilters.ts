@@ -1,7 +1,8 @@
 /**
  * A Linear custom view's filter (its `filterData`) → Sprawniej filters. Linear's filters can say much more than
- * ours: we keep status, assignee, priority, labels, project and team with "is" and "is any of", and anything joined
- * with "and". Everything else ("is not", "or" across fields, subscribers, dates, cycles, text…) is left out, and the
+ * ours: we keep status, assignee, subscribers, priority, labels, project and team with "is" and "is any of", and
+ * anything joined with "and" ("assigned to Jan or Jan is subscribed" too, which here is "Jan follows it"). Everything
+ * else ("is not", other "or"s across fields, dates, cycles, text…) is left out, and the
  * view is reported as not exact, so the import can say which views to check. Pure, tested in
  * tests/linearImport.test.ts.
  *
@@ -38,7 +39,7 @@ export interface MappedFilter {
   nothing: boolean
 }
 
-type Key = 'statuses' | 'assignees' | 'priorities' | 'labels' | 'projects' | 'teams'
+type Key = 'statuses' | 'assignees' | 'subscribers' | 'priorities' | 'labels' | 'projects' | 'teams'
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
@@ -144,6 +145,7 @@ export function mapViewFilter(filterData: unknown, ctx: FilterContext): MappedFi
   /** { null: true } on the field itself: "no assignee", "no project" */
   const noneProp: Prop = (name, value) => (name === 'null' && value === true ? [null] : null)
 
+  const personIds = (vals: unknown[]) => convert(vals, (v) => (typeof v === 'string' ? ctx.person(v) : undefined))
   const linearLabelsWhere = (match: (l: LLabel) => boolean) => ctx.labels.filter((l) => !l.isGroup && match(l)).map(ctx.label)
   const lower = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : undefined)
 
@@ -163,7 +165,8 @@ export function mapViewFilter(filterData: unknown, ctx: FilterContext): MappedFi
           type: (vals) => convert<StatusId>(vals, (v) => (typeof v === 'string' && GROUPS[v] ? STATUSES.filter((s) => s.group === GROUPS[v]).map((s) => s.id) : undefined)),
         }),
       ),
-    assignee: (f) => field('assignees', f, byProp({ id: (vals) => convert(vals, (v) => (typeof v === 'string' ? ctx.person(v) : undefined)) }, noneProp)),
+    assignee: (f) => field('assignees', f, byProp({ id: personIds }, noneProp)),
+    subscribers: (f) => field('subscribers', f, byProp({ id: personIds })),
     priority: (f) =>
       field('priorities', f, (name, value) => {
         const vals = allowed({ [name]: value })
@@ -208,11 +211,31 @@ export function mapViewFilter(filterData: unknown, ctx: FilterContext): MappedFi
     },
   }
 
+  /**
+   * "Assigned to Jan, or Jan is subscribed": here people follow what they're assigned to, so that's "Jan follows it".
+   * Other people on each side (assigned to Ana or Jan is subscribed) become "Ana or Jan follows it", which shows more.
+   */
+  const personOr = (items: unknown[]): boolean => {
+    const sets: unknown[][] = []
+    for (const item of items) {
+      const keys = isObj(item) ? Object.keys(item) : []
+      if (keys.length !== 1 || (keys[0] !== 'assignee' && keys[0] !== 'subscribers')) return false
+      const vals = fieldValues((item as Record<string, unknown>)[keys[0]], byProp({ id: personIds }))
+      if (!vals) return false
+      sets.push(vals)
+    }
+    conditions++
+    if (!sets.every((x) => same(x, sets[0]))) lose()
+    put('subscribers', sets.flat())
+    return true
+  }
+
   const walk = (f: unknown) => {
     if (!isObj(f)) return
     for (const [k, v] of Object.entries(f)) {
       if (k === 'and' && Array.isArray(v)) v.forEach(walk)
       else if (k === 'or' && Array.isArray(v) && v.length <= 1) v.forEach(walk) // Linear saves an empty "or" now and then
+      else if (k === 'or' && Array.isArray(v) && personOr(v)) continue
       else if (FIELDS[k]) FIELDS[k](v)
       else {
         conditions++

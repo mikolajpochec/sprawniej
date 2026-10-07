@@ -2,13 +2,24 @@
  * Pure helpers that turn the store into what a list or board shows: filter, sort, group. No React, no store
  * access, so they are easy to test (tests/select.test.ts).
  */
-import type { Display, Filters, InboxItem, Issue, Ordering, Person, Project, ReadState } from '@/model/schema'
+import type { Comment, Display, Filters, InboxItem, Issue, Ordering, Person, Project, ReadState } from '@/model/schema'
+import { followers } from './notify'
 import { PRIORITY_NAMES, PRIORITY_ORDER, STATUSES, TAB_GROUPS, statusOf, type IssueTab, type Priority } from '@/model/status'
 
-export function matches(issue: Issue, f: Filters): boolean {
+/** for the Subscribers filter: who follows an issue depends on its comments and on who is in the workspace */
+export interface FollowContext {
+  comments: Record<string, Comment[]>
+  people: Record<string, Person>
+}
+
+export function matches(issue: Issue, f: Filters, ctx?: FollowContext): boolean {
   if (f.teams?.length && !f.teams.includes(issue.team)) return false
   if (f.statuses?.length && !f.statuses.includes(issue.status)) return false
   if (f.assignees?.length && !f.assignees.includes(issue.assignee)) return false
+  if (f.subscribers?.length && ctx) {
+    const following = followers(issue, ctx.comments[issue.id] ?? [], ctx.people)
+    if (!f.subscribers.some((l) => following.includes(l))) return false
+  }
   if (f.priorities?.length && !f.priorities.includes(issue.priority)) return false
   if (f.labels?.length && !issue.labels.some((l) => f.labels!.includes(l))) return false
   if (f.projects?.length && !f.projects.includes(issue.project)) return false

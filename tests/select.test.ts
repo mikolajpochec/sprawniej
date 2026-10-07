@@ -42,6 +42,16 @@ describe('filters and tabs', () => {
   test('null assignee filter finds unassigned issues', () => {
     expect(issues.filter((i) => matches(i, { assignees: [null] })).every((i) => i.assignee === null)).toBe(true)
   })
+  test('subscribers: anyone following the issue (made it, assigned, commented, subscribed), unless they unsubscribed', () => {
+    const one = issues.find((i) => i.assignee && i.createdBy !== i.assignee)!
+    const follow = { comments: { [one.id]: [{ id: 'c', issue: one.id, author: 'zed', createdAt: 'x', body: 'hi' }] }, people: { ...data.people, zed: { login: 'zed', githubId: 9, name: 'Zed', avatarUrl: '' } } }
+    expect(matches(one, { subscribers: [one.assignee!] }, follow)).toBe(true)
+    expect(matches(one, { subscribers: [one.createdBy] }, follow)).toBe(true)
+    expect(matches(one, { subscribers: ['zed'] }, follow)).toBe(true)
+    expect(matches({ ...one, subscribers: ['ghost'] }, { subscribers: ['ghost'] }, follow)).toBe(false) // not in the workspace
+    expect(matches({ ...one, unsubscribed: ['zed'] }, { subscribers: ['zed'] }, follow)).toBe(false)
+    expect(matches(one, { subscribers: ['nobody'] }, follow)).toBe(false)
+  })
   test('Active is Todo, In Progress and In Review only', () => {
     const active = issues.filter((i) => inTab(i, 'active'))
     expect(new Set(active.map((i) => i.status))).toEqual(new Set(['todo', 'in_progress', 'in_review']))

@@ -1,10 +1,10 @@
 /**
- * Filters for a list of issues: "Filter" adds one (status, assignee, priority, labels, project, team), and each
+ * Filters for a list of issues: "Filter" adds one (status, assignee, subscribers, priority, labels, project, team), and each
  * active filter shows as a chip you can change or remove. Inside one filter, any chosen value matches
  * (Todo or In Progress); different filters must all match (Todo and assigned to Ana).
  */
 import { useMemo, type ReactNode } from 'react'
-import { Box, CircleDot, ListFilter, SignalHigh, Tag, UserRound, Users, X } from 'lucide-react'
+import { Bell, Box, CircleDot, ListFilter, SignalHigh, Tag, UserRound, Users, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { Picker, type PickerItem } from '@/components/Picker'
 import { useData } from '@/data/store'
@@ -17,6 +17,7 @@ import { priorityItems, statusItems, useLabelItems, usePeopleItems, useProjectIt
 const KINDS: { key: FilterKey; name: string; icon: ReactNode }[] = [
   { key: 'statuses', name: 'Status', icon: <CircleDot /> },
   { key: 'assignees', name: 'Assignee', icon: <UserRound /> },
+  { key: 'subscribers', name: 'Subscribers', icon: <Bell /> },
   { key: 'priorities', name: 'Priority', icon: <SignalHigh /> },
   { key: 'labels', name: 'Labels', icon: <Tag /> },
   { key: 'projects', name: 'Project', icon: <Box /> },
@@ -32,6 +33,8 @@ function useItems(): Record<FilterKey, PickerItem<unknown>[]> {
     () => ({
       statuses: statusItems,
       assignees: people,
+      // anyone following the issue: who made it, is assigned, commented, was mentioned or subscribed
+      subscribers: people.filter((p) => p.value !== null),
       priorities: priorityItems,
       labels,
       projects,

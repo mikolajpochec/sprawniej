@@ -35,6 +35,13 @@ export const personSchema = z
   .passthrough()
 export type Person = z.infer<typeof personSchema>
 
+/**
+ * Someone the Linear import brought who isn't in the workspace yet: `people/~jan-kowalski.json`, written by whoever
+ * imported. Their issues, comments and views keep pointing at them; a later import that matches them to a GitHub
+ * person moves all of that over. A `~` can't start a GitHub login, so they never clash, and they get no inbox notes.
+ */
+export const isGuest = (login: string | null | undefined): boolean => !!login && login.startsWith('~')
+
 /** labels/<id>.json */
 export const labelSchema = z
   .object({
@@ -162,6 +169,8 @@ export const filtersSchema = z
     teams: z.array(z.string()).optional(),
     statuses: z.array(z.enum(STATUS_IDS)).optional(),
     assignees: z.array(login.nullable()).optional(),
+    /** people following the issue (see src/data/notify.ts, `followers`) */
+    subscribers: z.array(login).optional(),
     priorities: z.array(z.number().int()).optional(),
     labels: z.array(z.string()).optional(),
     projects: z.array(z.string().nullable()).optional(),

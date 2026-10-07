@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { parseFile } from '@/data/files'
-import { buildImport, emojiFor, freeKey, guessPerson, involvedUsers, mapStatus, rewriteLinks, type Existing, type ImportChoices } from '@/features/import/linearMap'
+import { buildImport, guestLogins, emojiFor, freeKey, guessPerson, involvedUsers, mapStatus, rewriteLinks, type Existing, type ImportChoices } from '@/features/import/linearMap'
 import type { ArchivedIssue, Comment, Issue, Label, Project, Team, View } from '@/model/schema'
 import { linearFixture as data } from './fixtures/linear'
 
@@ -14,8 +14,23 @@ describe('matching people', () => {
     expect(guessPerson({ ...data.users[2], name: 'Mikolaj Pochec' }, people)).toBe('mikolaj')
     expect(guessPerson(data.users[2], people)).toBeNull()
   })
-  test('only people who appear in the issues', () => {
-    expect(involvedUsers({ ...data, issues: data.issues.slice(1, 3), comments: [] }).map((u) => u.id)).toEqual(['u-ana', 'u-old'])
+  test('only people who appear in the issues and views', () => {
+    expect(involvedUsers({ ...data, issues: data.issues.slice(1, 3), comments: [], views: [] }).map((u) => u.id)).toEqual(['u-ana', 'u-old'])
+    // subscribers and people a view filters by count too
+    expect(involvedUsers({ ...data, comments: [], views: [] }).map((u) => u.id)).toContain('u-cat')
+    expect(involvedUsers({ ...data, issues: [], comments: [], views: data.views!.filter((v) => v.id === 'v-cat') }).map((u) => u.id)).toEqual(['u-cat'])
+  })
+  test('people who aren’t here get a ~login of their own, kept from one import to the next', () => {
+    const g = guestLogins(data.users, {})
+    expect(g.get('u-old')).toBe('~old-timer')
+    expect(g.get('u-cat')).toBe('~cat-wong')
+    const taken = guestLogins(data.users, { '~cat-wong': { login: '~cat-wong', githubId: 0, name: 'Another Cat', avatarUrl: '' } })
+    expect(taken.get('u-cat')).toMatch(/^~cat-wong-/)
+    const kept = guestLogins(data.users, { '~catw': { login: '~catw', githubId: 0, name: 'Cat Wong', avatarUrl: '', linearId: 'u-cat' } as never })
+    expect(kept.get('u-cat')).toBe('~catw')
+    // Linear sometimes only knows an e-mail address as the name
+    const mail = guestLogins([{ ...data.users[3], id: 'u-mail', name: 'jan.kowalski@acme.dev', displayName: 'jan' }], {})
+    expect(mail.get('u-mail')).toBe('~jan')
   })
 })
 
@@ -72,7 +87,7 @@ describe('building the import', () => {
   const byTitle = (t: string) => Object.values(ws.issues).find((i) => i.title === t)!
 
   test('only the chosen team, with numbers, statuses and people', () => {
-    expect(r.counts).toEqual({ teams: 1, labels: 3, projects: 1, issues: 3, comments: 2, archived: 0, views: 7 })
+    expect(r.counts).toEqual({ teams: 1, labels: 3, projects: 1, issues: 3, comments: 2, archived: 0, views: 9 })
     expect(ws.teams.ENG).toMatchObject({ name: 'Engineering', emoji: '🚀' })
     expect(ws.teams.ENG.members.sort()).toEqual(['ana-n', 'bstone', 'mikolaj'])
     const charts = byTitle('Charts are slow')
@@ -111,7 +126,7 @@ describe('building the import', () => {
   test('views: the chosen teams’ and the workspace’s, with the filters that fit', () => {
     const views = Object.values(ws.views ?? {})
     const byName = (n: string) => views.find((v) => v.name === n)!
-    expect(views.map((v) => v.name).sort()).toEqual(['@ Area', '@ Unused', 'Ana', 'Bob’s urgent work', 'Nobody’s', 'Open bugs', 'Recent launch work'])
+    expect(views.map((v) => v.name).sort()).toEqual(['@ Area', '@ Unused', 'Ana', 'Bob follows', 'Bob’s or followed', 'Bob’s urgent work', 'Nobody’s', 'Open bugs', 'Recent launch work'])
     const bug = Object.values(ws.labels).find((l) => l.name === 'Bug')!.id
     expect(byName('Open bugs')).toMatchObject({ team: 'ENG', emoji: '🐞', owner: 'ana-n', description: 'Bugs still to fix', filters: { statuses: ['todo', 'in_progress', 'in_review'], labels: [bug] } })
     expect(byName('Bob’s urgent work')).toMatchObject({ team: null, owner: 'bstone', filters: { assignees: ['bstone'], priorities: [1, 2], teams: ['ENG'], statuses: ['in_review'] } })
@@ -130,8 +145,60 @@ describe('building the import', () => {
     expect(byName('@ Unused').filters).toEqual({ labels: [label('Unused')] })
     expect(label('Unused')).toBeDefined()
     expect(byName('Ana').filters).toEqual({ assignees: ['ana-n'] })
-    // nothing here can say "Bob follows it": left out instead of showing every issue
-    expect(r.skippedViews.sort()).toEqual(['Bob follows', 'Bob’s or followed'])
+    // "subscribed", and "assigned or subscribed" (people follow what they're assigned to): both are "Bob follows it"
+    expect(byName('Bob follows').filters).toEqual({ subscribers: ['bstone'] })
+    expect(byName('Bob’s or followed').filters).toEqual({ subscribers: ['bstone'] })
+    expect(r.inexactViews).not.toContain('Bob’s or followed')
+    // Cat is matched to no one, so nothing here can say "Cat follows it": left out instead of showing every issue
+    expect(r.skippedViews).toEqual(['Cat'])
+  })
+
+  test('subscribers come over, without the people who follow the issue anyway', () => {
+    // Bob is assigned and Ana created it: they follow it anyway; Cat is matched to no one
+    expect(byTitle('Charts are slow').subscribers).toBeUndefined()
+    const withCat = read(buildImport(data, { ...choices, people: { ...choices.people, 'u-cat': 'cwong' } }, empty(), ids(), '2026-03-01T00:00:00.000Z').files)
+    expect(Object.values(withCat.issues).find((i) => i.title === 'Charts are slow')?.subscribers).toEqual(['cwong'])
+    // the creator who isn't on Linear's list unsubscribed there; Linear didn't send a list for the others
+    const gone = buildImport({ ...data, issues: data.issues.map((i) => (i.id === 'i-1' ? { ...i, subscribers: { nodes: [{ id: 'u-bob' }] } } : i)) }, choices, empty(), ids(), '2026-03-01T00:00:00.000Z')
+    const w = read(gone.files)
+    expect(Object.values(w.issues).find((i) => i.title === 'Charts are slow')?.unsubscribed).toEqual(['ana-n'])
+    expect(Object.values(w.issues).find((i) => i.title === 'Old idea')?.unsubscribed).toBeUndefined()
+  })
+
+  test('people who aren’t here come as someone who hasn’t joined, and keep their work', () => {
+    const guests = { ...choices, people: { ...choices.people, 'u-old': '~old-timer', 'u-cat': '~cat-wong' } }
+    const g = buildImport(data, guests, empty(), ids(), '2026-03-01T00:00:00.000Z')
+    expect(g.files.get('people/~old-timer.json')).toContain('"name": "Old Timer"')
+    expect(g.files.get('people/~cat-wong.json')).toContain('https://example.com/cat.png')
+    const w = read(g.files)
+    const old = Object.values(w.issues).find((i) => i.title === 'Old idea')!
+    expect(old.createdBy).toBe('~old-timer')
+    expect(Object.values(w.issues).find((i) => i.title === 'Charts are slow')?.subscribers).toEqual(['~cat-wong'])
+    // their comment is theirs, with no "From Linear" line
+    const theirs = Object.values(w.comments).flat().find((c) => c.author === '~old-timer')!
+    expect(theirs.body).toBe('Back in my day')
+    // their view works, and they're never made a team member
+    expect(Object.values(w.views ?? {}).find((v) => v.name === 'Cat')?.filters).toEqual({ subscribers: ['~cat-wong'] })
+    expect(g.skippedViews).toEqual([])
+    expect(w.teams.ENG.members).not.toContain('~old-timer')
+  })
+
+  test('once someone has joined and is matched, a later import moves their work to their account', () => {
+    const guests = { ...choices, people: { ...choices.people, 'u-old': '~old-timer', 'u-cat': '~cat-wong' } }
+    const first = buildImport(data, guests, empty(), ids(), '2026-03-01T00:00:00.000Z')
+    const w = read(first.files)
+    const people = Object.fromEntries([...first.files].filter(([p]) => p.startsWith('people/')).map(([, t]) => JSON.parse(t!)).map((p) => [p.login, p]))
+    // an issue made here, assigned to Cat, and a view made here about her
+    const mine = { id: 'local-1', team: 'ENG', number: 50, title: 'Made here', description: '', status: 'todo', priority: 0, assignee: '~cat-wong', labels: [], project: null, parent: null, sortOrder: 'a0', createdBy: 'mikolaj', createdAt: 'x', updatedAt: 'x', completedAt: null } as Issue
+    const view = { id: 'vh', name: 'Cat’s', emoji: '🐱', description: '', owner: '~cat-wong', team: null, filters: { assignees: ['~cat-wong'] }, display: Object.values(w.views!)[0].display, createdAt: 'x' } as View
+    const after = buildImport(data, { ...guests, people: { ...guests.people, 'u-cat': 'cwong' } }, { ...w, me: 'mikolaj', people, issues: { ...w.issues, [mine.id]: mine }, views: { ...w.views, vh: view } }, ids(), '2026-03-02T00:00:00.000Z')
+    expect(after.files.get('people/~cat-wong.json')).toBeNull()
+    expect(after.files.has('people/~old-timer.json')).toBe(false) // still not here: left alone
+    const w2 = read(after.files)
+    expect(Object.values(w2.issues).find((i) => i.title === 'Charts are slow')?.subscribers).toEqual(['cwong'])
+    expect(w2.issues['local-1']?.assignee).toBe('cwong')
+    expect(w2.views?.vh).toMatchObject({ owner: 'cwong', filters: { assignees: ['cwong'] } })
+    expect(Object.values(w2.views ?? {}).find((v) => v.name === 'Cat')?.filters).toEqual({ subscribers: ['cwong'] })
   })
 
   test('a person matched to no one: their view is left out', () => {

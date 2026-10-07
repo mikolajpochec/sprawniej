@@ -165,7 +165,9 @@ Press **+** next to *Your teams* to join a team or create a new one.
 
 ## Filters
 
-**Filter** (above every list) narrows it down: by status, assignee, priority, labels, project or team. Each filter
+**Filter** (above every list) narrows it down: by status, assignee, subscribers, priority, labels, project or team.
+**Subscribers** finds the issues someone follows: ones they made, are assigned to, commented on, were mentioned in or
+subscribed to. Each filter
 shows as a chip. Click a chip to change it, or its **×** to remove it. Inside one filter, any of the chosen values
 counts ("Todo or In Progress"); several filters must all match ("Todo, and assigned to Ana").
 
@@ -215,9 +217,11 @@ themselves after a month, and unread ones after three.
 **Settings › Import from Linear** brings your teams, issues, comments, projects, labels and views over. You'll need a
 Linear personal API key (the first step shows where to make one). Pick the teams, check who's who, and press
 **Import**. Issue numbers stay the same (`ENG-123` is still `ENG-123`), and so do due dates and estimates. Issues
-finished long ago go straight to the archive. Views keep the filters that fit. The import tells you which views lost
-some filters, so you can check them, and which stay in Linear because none of their filters fit (for example a view
-of what someone is subscribed to). You can run it again later to bring in new
+finished long ago go straight to the archive. Views keep the filters that fit, and the import tells you which views
+lost some, so you can check them.
+
+People who aren't in Sprawniej yet come over too, marked "hasn't joined": their issues, comments and views stay
+theirs. Invite them, then run the import again, and everything moves to their account. You can run it again later to bring in new
 changes; nothing is copied twice.
 
 ## Handy keys

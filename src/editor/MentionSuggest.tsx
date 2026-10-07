@@ -4,7 +4,7 @@ import { PluginKey } from '@tiptap/pm/state'
 import { ReactRenderer } from '@tiptap/react'
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from '@tiptap/suggestion'
 import { useData } from '@/data/store'
-import type { Person } from '@/model/schema'
+import { isGuest, type Person } from '@/model/schema'
 import { PeopleList, type ListHandle } from './PeopleList'
 
 function place(el: HTMLElement, rect: DOMRect | null | undefined) {
@@ -25,8 +25,9 @@ export const MentionSuggest = Extension.create({
         char: '@',
         items: ({ query }) => {
           const q = query.toLowerCase()
+          // people from Linear who haven't joined can't be mentioned (nobody would hear it)
           return Object.values(useData.getState().people)
-            .filter((p) => p.login.toLowerCase().includes(q) || p.name.toLowerCase().includes(q))
+            .filter((p) => !isGuest(p.login) && (p.login.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)))
             .slice(0, 6)
         },
         command: ({ editor, range, props }) => {
