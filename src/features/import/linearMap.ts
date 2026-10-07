@@ -9,7 +9,7 @@ import { generateNKeysBetween } from 'fractional-indexing'
 import { archiveMonth, archiveToFile, commentToFile, issueToFile, jsonToFile, paths } from '@/data/files'
 import { STATUSES, type Priority, type StatusId } from '@/model/status'
 import { AUTO_ARCHIVE_MONTHS, type ArchivedIssue, type Comment, type Issue, type Label, type Person, type Project, type Team, type View } from '@/model/schema'
-import type { LIssue, LinearData, LTeam, LUser } from './linearApi'
+import type { LIssue, LinearData, LLabel, LTeam, LUser } from './linearApi'
 import { mapViewFilter, type FilterContext } from './linearFilters'
 
 // ---------- people ----------
@@ -131,6 +131,8 @@ export interface ImportResult {
   renumbered: { from: string; to: string }[]
   /** views whose Linear filters couldn't all come over, by name */
   inexactViews: string[]
+  /** views none of whose filters could come over, so they're left out, by name */
+  skippedViews: string[]
 }
 
 const linearIdOf = (x: object): string | undefined => {
@@ -197,20 +199,24 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
   const labelsByLinear = byLinearId(Object.values(ws.labels))
   const labelsByName = new Map(Object.values(ws.labels).map((l) => [l.name.toLowerCase(), l]))
   const labelId = new Map<string, string>()
-  for (const l of data.labels) {
-    if (l.isGroup || !usedLabels.has(l.id)) continue
+  /** a Linear label → its label here, made if it's new (views bring over labels no issue uses yet) */
+  const bringLabel = (l: LLabel): string => {
+    const known = labelId.get(l.id)
+    if (known) return known
     const name = l.parent ? `${l.parent.name}: ${l.name}` : l.name
     const found = labelsByLinear.get(l.id) ?? labelsByName.get(name.toLowerCase())
     if (found) {
       labelId.set(l.id, found.id)
-      continue
+      return found.id
     }
     const label: Label & { linearId: string } = { id: newId(), name, color: l.color, linearId: l.id }
     files.set(paths.label(label.id), jsonToFile(label))
     labelsByName.set(name.toLowerCase(), label)
     labelId.set(l.id, label.id)
     counts.labels++
+    return label.id
   }
+  for (const l of data.labels) if (!l.isGroup && usedLabels.has(l.id)) bringLabel(l)
 
   // projects: the ones these teams' issues belong to, or that belong to these teams
   const usedProjects = new Set(issues.flatMap((i) => (i.project ? [i.project.id] : [])))
@@ -357,17 +363,15 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
 
   // views: the chosen teams' and the whole workspace's, with the filters that can come over
   const inexactViews: string[] = []
+  const skippedViews: string[] = []
   const viewsByLinear = byLinearId(Object.values(ws.views ?? {}))
   const ctx: FilterContext = {
     states: new Map((data.states ?? []).map((st) => [st.id, st])),
     // someone matched to "no one" can't stand in a filter: "assigned to Bob" mustn't become "assigned to no one"
     person: (id) => choices.people[id] ?? undefined,
-    label: (id) => labelId.get(id),
-    labelsNamed: (name) => {
-      const ids = data.labels.filter((l) => l.name.toLowerCase() === name.toLowerCase()).flatMap((l) => (labelId.has(l.id) ? [labelId.get(l.id)!] : []))
-      const here = labelsByName.get(name.toLowerCase())
-      return [...new Set([...ids, ...(here ? [here.id] : [])])]
-    },
+    labels: data.labels,
+    label: bringLabel,
+    labelHere: (name) => labelsByName.get(name.toLowerCase())?.id,
     project: (id) => projectId.get(id),
     team: (idOrKey) => {
       const t = teams.find((x) => x.id === idOrKey || x.key === idOrKey)
@@ -377,7 +381,13 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
   for (const v of data.views ?? []) {
     if (v.team && !teamIds.has(v.team.id)) continue
     const old = viewsByLinear.get(v.id)
-    const { filters, exact } = mapViewFilter(v.filterData, ctx)
+    const { filters, exact, nothing } = mapViewFilter(v.filterData, ctx)
+    if (nothing) {
+      // it would show every issue, which is worse than no view: leave it out (and drop what an earlier import made)
+      skippedViews.push(v.name)
+      if (old) files.set(paths.view(old.id), null)
+      continue
+    }
     if (v.team) delete filters.teams // a team's view is about that team already
     const view: View & { linearId: string } = {
       ...old,
@@ -398,5 +408,5 @@ export function buildImport(data: LinearData, choices: ImportChoices, ws: Existi
     if (!exact) inexactViews.push(v.name)
   }
 
-  return { files, counts, renumbered, inexactViews }
+  return { files, counts, renumbered, inexactViews, skippedViews }
 }

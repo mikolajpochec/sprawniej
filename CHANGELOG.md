@@ -3,6 +3,13 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.2.1: Views from Linear keep their filters
+*2026-10-07*
+
+- Views imported from Linear now keep their label and assignee filters, including “this label or anything under it”; import again to fix views that came over showing every issue
+- A Linear view none of whose filters fit here (like one about subscribers) stays in Linear instead of showing every issue, and the import says which ones
+- Labels a Linear view needs come over too, even when no issue uses them yet
+
 ## 1.2.0: Views come over from Linear
 *2026-10-07*
 

@@ -312,12 +312,24 @@ export function ImportPage() {
             archive. You can still find and open {c.archived === 1 ? 'it' : 'them'}.
           </p>
         )}
+        {plan.skippedViews.length > 0 && (
+          <div className="mt-5 text-sm text-muted-foreground">
+            <p>
+              {plan.skippedViews.length === 1 ? 'One view stays' : `${plan.skippedViews.length} views stay`} in Linear: none of {plan.skippedViews.length === 1 ? 'its' : 'their'} filters can
+              come over (like subscribers, “is not”, or people who aren’t matched to anyone here), and without them {plan.skippedViews.length === 1 ? 'it' : 'they'} would show
+              every issue.
+            </p>
+            <p className="mt-1 text-foreground/80">{plan.skippedViews.map((n) => `“${n}”`).join(', ')}</p>
+          </div>
+        )}
         {plan.inexactViews.length > 0 && (
-          <p className="mt-5 text-sm text-muted-foreground">
-            {plan.inexactViews.length === 1 ? 'One view has' : `${plan.inexactViews.length} views have`} filters that can’t come over exactly (like “is not”, dates or
-            cycles), so {plan.inexactViews.length === 1 ? 'it keeps' : 'they keep'} only the parts that fit: {plan.inexactViews.map((n) => `“${n}”`).join(', ')}. Check{' '}
-            {plan.inexactViews.length === 1 ? 'it' : 'them'} after the import.
-          </p>
+          <div className="mt-5 text-sm text-muted-foreground">
+            <p>
+              {plan.inexactViews.length === 1 ? 'One view keeps' : `${plan.inexactViews.length} views keep`} only the filters that fit, so {plan.inexactViews.length === 1 ? 'it' : 'they'}{' '}
+              may not show quite the same issues as in Linear. Check {plan.inexactViews.length === 1 ? 'it' : 'them'} after the import.
+            </p>
+            <p className="mt-1 text-foreground/80">{plan.inexactViews.map((n) => `“${n}”`).join(', ')}</p>
+          </div>
         )}
         {stage.data.viewsFailed && <p className="mt-5 text-sm text-muted-foreground">Linear didn’t share its views with this key, so only issues and the rest come over.</p>}
         {plan.renumbered.length > 0 && (
