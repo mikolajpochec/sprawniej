@@ -215,8 +215,9 @@ themselves after a month, and unread ones after three.
 **Settings › Import from Linear** brings your teams, issues, comments, projects, labels and views over. You'll need a
 Linear personal API key (the first step shows where to make one). Pick the teams, check who's who, and press
 **Import**. Issue numbers stay the same (`ENG-123` is still `ENG-123`), and so do due dates and estimates. Issues
-finished long ago go straight to the archive. Views keep the filters that fit; the import tells you which views lost
-some filters, so you can check them. You can run it again later to bring in new
+finished long ago go straight to the archive. Views keep the filters that fit. The import tells you which views lost
+some filters, so you can check them, and which stay in Linear because none of their filters fit (for example a view
+of what someone is subscribed to). You can run it again later to bring in new
 changes; nothing is copied twice.
 
 ## Handy keys

@@ -72,7 +72,7 @@ describe('building the import', () => {
   const byTitle = (t: string) => Object.values(ws.issues).find((i) => i.title === t)!
 
   test('only the chosen team, with numbers, statuses and people', () => {
-    expect(r.counts).toEqual({ teams: 1, labels: 2, projects: 1, issues: 3, comments: 2, archived: 0, views: 4 })
+    expect(r.counts).toEqual({ teams: 1, labels: 3, projects: 1, issues: 3, comments: 2, archived: 0, views: 7 })
     expect(ws.teams.ENG).toMatchObject({ name: 'Engineering', emoji: '🚀' })
     expect(ws.teams.ENG.members.sort()).toEqual(['ana-n', 'bstone', 'mikolaj'])
     const charts = byTitle('Charts are slow')
@@ -81,8 +81,8 @@ describe('building the import', () => {
     expect(byTitle('Old idea')).toMatchObject({ status: 'backlog', createdBy: 'mikolaj' })
     expect(byTitle('Fix the axis')).toMatchObject({ status: 'done', completedAt: '2026-02-01T00:00:00.000Z', parent: charts.id })
   })
-  test('labels are flattened and merged by name', () => {
-    expect(Object.values(ws.labels).map((l) => l.name).sort()).toEqual(['Area: Charts', 'Bug'])
+  test('labels are flattened and merged by name; only used ones come (and ones a view needs)', () => {
+    expect(Object.values(ws.labels).map((l) => l.name).sort()).toEqual(['Area: Charts', 'Bug', 'Unused'])
     expect(byTitle('Fix the axis').labels).toEqual(byTitle('Charts are slow').labels.slice(0, 1))
   })
   test('projects, order, links and comments', () => {
@@ -111,7 +111,7 @@ describe('building the import', () => {
   test('views: the chosen teams’ and the workspace’s, with the filters that fit', () => {
     const views = Object.values(ws.views ?? {})
     const byName = (n: string) => views.find((v) => v.name === n)!
-    expect(views.map((v) => v.name).sort()).toEqual(['Bob’s urgent work', 'Nobody’s', 'Open bugs', 'Recent launch work'])
+    expect(views.map((v) => v.name).sort()).toEqual(['@ Area', '@ Unused', 'Ana', 'Bob’s urgent work', 'Nobody’s', 'Open bugs', 'Recent launch work'])
     const bug = Object.values(ws.labels).find((l) => l.name === 'Bug')!.id
     expect(byName('Open bugs')).toMatchObject({ team: 'ENG', emoji: '🐞', owner: 'ana-n', description: 'Bugs still to fix', filters: { statuses: ['todo', 'in_progress', 'in_review'], labels: [bug] } })
     expect(byName('Bob’s urgent work')).toMatchObject({ team: null, owner: 'bstone', filters: { assignees: ['bstone'], priorities: [1, 2], teams: ['ENG'], statuses: ['in_review'] } })
@@ -119,6 +119,30 @@ describe('building the import', () => {
     expect(byName('Recent launch work').filters).toEqual({ projects: [Object.values(ws.projects)[0].id] })
     expect(byName('Recent launch work').owner).toBe('mikolaj') // matched to no one: you
     expect(r.inexactViews).toEqual(['Recent launch work'])
+  })
+
+  test('views saved by Linear’s app: choices inside each field, labels with their sub-labels', () => {
+    const views = Object.values(ws.views ?? {})
+    const byName = (n: string) => views.find((v) => v.name === n)!
+    const label = (n: string) => Object.values(ws.labels).find((l) => l.name === n)?.id
+    expect(byName('@ Area').filters).toEqual({ labels: [label('Area: Charts')] })
+    // no issue has it, but the view needs it, so it comes over (the view starts empty, as in Linear)
+    expect(byName('@ Unused').filters).toEqual({ labels: [label('Unused')] })
+    expect(label('Unused')).toBeDefined()
+    expect(byName('Ana').filters).toEqual({ assignees: ['ana-n'] })
+    // nothing here can say "Bob follows it": left out instead of showing every issue
+    expect(r.skippedViews.sort()).toEqual(['Bob follows', 'Bob’s or followed'])
+  })
+
+  test('a person matched to no one: their view is left out', () => {
+    const noAna = buildImport(data, { ...choices, people: { ...choices.people, 'u-ana': null } }, empty(), ids(), '2026-03-01T00:00:00.000Z')
+    expect(noAna.skippedViews).toContain('Ana')
+  })
+
+  test('a view made by an earlier import that can’t come over now goes away', () => {
+    const v = Object.values(ws.views ?? {}).find((x) => x.name === 'Ana')!
+    const again = buildImport(data, { ...choices, people: { ...choices.people, 'u-ana': null } }, { ...ws, me: 'mikolaj' }, ids(), '2026-03-02T00:00:00.000Z')
+    expect(again.files.get(`views/${v.id}.json`)).toBeNull()
   })
 
   test('a second import updates views and keeps how they look', () => {

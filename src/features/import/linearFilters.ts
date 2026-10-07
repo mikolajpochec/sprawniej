@@ -1,26 +1,41 @@
 /**
  * A Linear custom view's filter (its `filterData`) → Sprawniej filters. Linear's filters can say much more than
  * ours: we keep status, assignee, priority, labels, project and team with "is" and "is any of", and anything joined
- * with "and". Everything else ("is not", "or", dates, cycles, text…) is left out, and the view is reported as not
- * exact, so the import can say which views to check. Pure, tested in tests/linearImport.test.ts.
+ * with "and". Everything else ("is not", "or" across fields, subscribers, dates, cycles, text…) is left out, and the
+ * view is reported as not exact, so the import can say which views to check. Pure, tested in
+ * tests/linearImport.test.ts.
+ *
+ * What Linear's app saves looks like this (each field holds a list of choices, labels also match their sub-labels):
+ *   { and: [{ assignee: { or: [{ id: { in: ['u1'] } }] } },
+ *           { labels: { and: [{ or: [{ name: { eq: 'AI' } }, { parent: { name: { eq: 'AI' } } }] }] } }] }
  */
 import type { Filters } from '@/model/schema'
 import { STATUSES, type StatusGroup, type StatusId } from '@/model/status'
 import { mapStatus } from './linearMap'
-import type { LState } from './linearApi'
+import type { LLabel, LState } from './linearApi'
 
 export interface FilterContext {
   /** workflow states by id */
   states: Map<string, LState>
-  /** a Linear user → a login here; null = matched to "no one"; undefined = not known */
-  person: (linearUserId: string) => string | null | undefined
-  /** a Linear label (by id) → label ids here */
-  label: (linearLabelId: string) => string | undefined
-  /** a Linear label name → label ids here (labels are matched by name too) */
-  labelsNamed: (name: string) => string[]
+  /** a Linear user → a login here; undefined = nobody here (unmatched) */
+  person: (linearUserId: string) => string | undefined
+  /** every Linear label (not just the ones issues use) */
+  labels: LLabel[]
+  /** a Linear label → its label id here, bringing it over if no issue brought it */
+  label: (l: LLabel) => string
+  /** a label here with this name (one made here, not from Linear) */
+  labelHere: (name: string) => string | undefined
   project: (linearProjectId: string) => string | undefined
   /** a Linear team, by id or by key → a team key here */
   team: (linearTeamIdOrKey: string) => string | undefined
+}
+
+export interface MappedFilter {
+  filters: Filters
+  /** every condition came over as it was */
+  exact: boolean
+  /** the view had conditions, and none of them could come over (it would show everything) */
+  nothing: boolean
 }
 
 type Key = 'statuses' | 'assignees' | 'priorities' | 'labels' | 'projects' | 'teams'
@@ -41,17 +56,24 @@ function allowed(cmp: unknown): unknown[] | null {
 /** Linear's state types → every status here in that group */
 const GROUPS: Record<string, StatusGroup> = { triage: 'backlog', backlog: 'backlog', unstarted: 'unstarted', started: 'started', completed: 'completed', canceled: 'canceled' }
 
-export function mapViewFilter(filterData: unknown, ctx: FilterContext): { filters: Filters; exact: boolean } {
+const same = (a: unknown[], b: unknown[]) => a.length === b.length && a.every((x) => b.includes(x))
+
+export function mapViewFilter(filterData: unknown, ctx: FilterContext): MappedFilter {
   const out = new Map<Key, unknown[]>()
   let exact = true
+  let conditions = 0
   const lose = () => {
     exact = false
   }
-  /** values for one of our filters; a second condition on the same thing narrows it */
+  /** a field's values; a second condition on the same field narrows it */
   const put = (key: Key, values: unknown[]) => {
     const unique = [...new Set(values)]
     const before = out.get(key)
-    out.set(key, before ? before.filter((v) => unique.includes(v)) : unique)
+    if (!before) return out.set(key, unique)
+    if (same(before, unique)) return
+    // labels: "has one of A" and "has one of B" can't be said as one "has any of"; keep the first, which shows more
+    if (key === 'labels') return lose()
+    out.set(key, before.filter((v) => unique.includes(v)))
   }
   /** turn Linear values into ours; any that can't be turned means the view isn't exact */
   const convert = <T,>(values: unknown[], one: (v: unknown) => T | T[] | undefined): T[] => {
@@ -64,82 +86,138 @@ export function mapViewFilter(filterData: unknown, ctx: FilterContext): { filter
     return res
   }
 
-  /** a field compared by one of several properties (id, name, key…); `by` turns each property's values */
-  const byProperty = (f: unknown, by: Record<string, (vals: unknown[]) => unknown[] | null>, key: Key) => {
-    if (!isObj(f)) return lose()
-    for (const [prop, cmp] of Object.entries(f)) {
-      const vals = by[prop] ? allowed(cmp) : null
-      const mapped = vals && by[prop](vals)
-      if (!mapped) {
+  /**
+   * The values one field's condition allows here. `prop` handles one property of it ({ id: { in: […] } }, or a bare
+   * { eq: 2 }) and gives null when it can't. Choices in `or` add up, `and` narrows. undefined = no condition at all.
+   */
+  type Prop = (name: string, value: unknown) => unknown[] | null
+  const fieldValues = (f: unknown, prop: Prop): unknown[] | null | undefined => {
+    if (!isObj(f)) return null
+    let res: unknown[] | undefined
+    const narrow = (vals: unknown[]) => {
+      res = res ? res.filter((v) => vals.includes(v)) : [...new Set(vals)]
+    }
+    for (const [k, v] of Object.entries(f)) {
+      if ((k === 'or' || k === 'and') && Array.isArray(v)) {
+        const parts = v.map((x) => fieldValues(x, prop))
+        // a choice we can't read: leaving it out shows fewer issues ("or") or more ("and"); either way, not exact
+        if (parts.some((p) => p === null)) lose()
+        const known = parts.filter((p): p is unknown[] | undefined => p !== null)
+        if (!known.length) {
+          if (v.length) return null
+          continue
+        }
+        if (k === 'or') {
+          if (known.some((p) => p === undefined)) continue // one choice is "anything"
+          narrow(known.flatMap((p) => p!))
+        } else for (const p of known) if (p) narrow(p)
+        continue
+      }
+      const vals = prop(k, v)
+      if (vals === null) {
         lose()
         continue
       }
-      put(key, mapped)
+      narrow(vals)
     }
+    return res
   }
 
-  const status = (f: unknown) =>
-    byProperty(
-      f,
-      {
-        id: (vals) => convert(vals, (v) => (typeof v === 'string' && ctx.states.get(v) ? mapStatus(ctx.states.get(v)!) : undefined)),
-        name: (vals) =>
-          convert(vals, (v) => {
-            if (typeof v !== 'string') return undefined
-            const state = [...ctx.states.values()].find((s) => s.name.toLowerCase() === v.toLowerCase())
-            return mapStatus(state ?? { name: v, type: '' })
-          }),
-        type: (vals) => convert<StatusId>(vals, (v) => (typeof v === 'string' && GROUPS[v] ? STATUSES.filter((s) => s.group === GROUPS[v]).map((s) => s.id) : undefined)),
-      },
-      'statuses',
-    )
-
-  const assignee = (f: unknown) => {
-    // "no assignee" is { null: true } on the field itself
-    const none = allowed(f)
-    if (none && none.length === 1 && none[0] === null) return put('assignees', [null])
-    byProperty(f, { id: (vals) => convert(vals, (v) => (typeof v === 'string' ? ctx.person(v) : undefined)) }, 'assignees')
+  /** one field: count it, read it, keep what came over */
+  const field = (key: Key, f: unknown, prop: Prop) => {
+    conditions++
+    const vals = fieldValues(f, prop)
+    if (vals === null) return lose()
+    if (vals !== undefined) put(key, vals)
   }
 
-  const priority = (f: unknown) => {
-    const vals = allowed(f)
-    if (vals) return put('priorities', convert(vals, (v) => (typeof v === 'number' && v >= 0 && v <= 4 ? v : undefined)))
-    lose()
-  }
+  /** { id: { in: […] } } style properties, each turned by its own function */
+  const byProp =
+    (turn: Record<string, (vals: unknown[]) => unknown[]>, extra?: Prop): Prop =>
+    (name, value) => {
+      if (turn[name]) {
+        const vals = allowed(value)
+        return vals && turn[name](vals)
+      }
+      return extra ? extra(name, value) : null
+    }
+  /** { null: true } on the field itself: "no assignee", "no project" */
+  const noneProp: Prop = (name, value) => (name === 'null' && value === true ? [null] : null)
 
-  const labels = (f: unknown) => {
-    // labels: { some: { … } } (has any of), or the older labels: { id / name: … }
-    const inner = isObj(f) && Object.keys(f).length === 1 && isObj(f.some) ? f.some : f
-    byProperty(
-      inner,
-      {
-        id: (vals) => convert(vals, (v) => (typeof v === 'string' ? ctx.label(v) : undefined)),
-        name: (vals) => convert(vals, (v) => (typeof v === 'string' && ctx.labelsNamed(v).length ? ctx.labelsNamed(v) : undefined)),
-      },
-      'labels',
-    )
-  }
+  const linearLabelsWhere = (match: (l: LLabel) => boolean) => ctx.labels.filter((l) => !l.isGroup && match(l)).map(ctx.label)
+  const lower = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : undefined)
 
-  const project = (f: unknown) => {
-    const none = allowed(f)
-    if (none && none.length === 1 && none[0] === null) return put('projects', [null])
-    byProperty(f, { id: (vals) => convert(vals, (v) => (typeof v === 'string' ? ctx.project(v) : undefined)) }, 'projects')
+  const FIELDS: Record<string, (f: unknown) => void> = {
+    state: (f) =>
+      field(
+        'statuses',
+        f,
+        byProp({
+          id: (vals) => convert(vals, (v) => (typeof v === 'string' && ctx.states.get(v) ? mapStatus(ctx.states.get(v)!) : undefined)),
+          name: (vals) =>
+            convert(vals, (v) => {
+              if (typeof v !== 'string') return undefined
+              const state = [...ctx.states.values()].find((s) => s.name.toLowerCase() === v.toLowerCase())
+              return mapStatus(state ?? { name: v, type: '' })
+            }),
+          type: (vals) => convert<StatusId>(vals, (v) => (typeof v === 'string' && GROUPS[v] ? STATUSES.filter((s) => s.group === GROUPS[v]).map((s) => s.id) : undefined)),
+        }),
+      ),
+    assignee: (f) => field('assignees', f, byProp({ id: (vals) => convert(vals, (v) => (typeof v === 'string' ? ctx.person(v) : undefined)) }, noneProp)),
+    priority: (f) =>
+      field('priorities', f, (name, value) => {
+        const vals = allowed({ [name]: value })
+        return vals && convert(vals, (v) => (typeof v === 'number' && v >= 0 && v <= 4 ? v : undefined))
+      }),
+    labels: (f) => {
+      const label: Prop = byProp(
+        {
+          id: (vals) => convert(vals, (v) => (typeof v === 'string' && ctx.labels.some((l) => l.id === v && !l.isGroup) ? linearLabelsWhere((l) => l.id === v) : undefined)),
+          name: (vals) =>
+            convert(vals, (v) => {
+              const found = linearLabelsWhere((l) => l.name.toLowerCase() === lower(v))
+              const here = typeof v === 'string' ? ctx.labelHere(v) : undefined
+              const all = [...new Set([...found, ...(here ? [here] : [])])]
+              // a group's own name matches no issue; its sub-labels come in through "parent"
+              const group = ctx.labels.some((l) => l.isGroup && l.name.toLowerCase() === lower(v))
+              return all.length || group ? all : undefined
+            }),
+        },
+        (name, value) => {
+          // "has a label from this group": { parent: { name: { eq: 'Area' } } }
+          if (name === 'parent' && isObj(value)) {
+            const ids = new Set<string>()
+            for (const [p, cmp] of Object.entries(value)) {
+              const vals = allowed(cmp)
+              if (!vals || (p !== 'id' && p !== 'name')) return null
+              for (const v of vals) for (const id of linearLabelsWhere((l) => !!l.parent && (p === 'id' ? l.parent.id === v : l.parent.name.toLowerCase() === lower(v)))) ids.add(id)
+            }
+            return [...ids]
+          }
+          // "has any label that…": { some: { … } }
+          if (name === 'some') return fieldValues(value, label) ?? null
+          return null
+        },
+      )
+      field('labels', f, label)
+    },
+    project: (f) => field('projects', f, byProp({ id: (vals) => convert(vals, (v) => (typeof v === 'string' ? ctx.project(v) : undefined)) }, noneProp)),
+    team: (f) => {
+      const one = (vals: unknown[]) => convert(vals, (v) => (typeof v === 'string' ? ctx.team(v) : undefined))
+      field('teams', f, byProp({ id: one, key: one }))
+    },
   }
-
-  const team = (f: unknown) => {
-    const one = (vals: unknown[]) => convert(vals, (v) => (typeof v === 'string' ? ctx.team(v) : undefined))
-    byProperty(f, { id: one, key: one }, 'teams')
-  }
-
-  const FIELDS: Record<string, (f: unknown) => void> = { state: status, assignee, priority, labels, project, team }
 
   const walk = (f: unknown) => {
     if (!isObj(f)) return
     for (const [k, v] of Object.entries(f)) {
       if (k === 'and' && Array.isArray(v)) v.forEach(walk)
-      else if (k === 'or' && Array.isArray(v) && v.length === 1) walk(v[0])
+      else if (k === 'or' && Array.isArray(v) && v.length <= 1) v.forEach(walk) // Linear saves an empty "or" now and then
       else if (FIELDS[k]) FIELDS[k](v)
-      else lose()
+      else {
+        conditions++
+        lose()
+      }
     }
   }
   walk(filterData)
@@ -150,5 +228,5 @@ export function mapViewFilter(filterData: unknown, ctx: FilterContext): { filter
     if (!vals.length) lose()
     else (filters as Record<string, unknown[]>)[k] = vals
   }
-  return { filters, exact }
+  return { filters, exact, nothing: conditions > 0 && !Object.keys(filters).length && !exact }
 }

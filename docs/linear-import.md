@@ -63,14 +63,17 @@ A view's filters come over when they say "is" or "is any of" about these, joined
 | Status (a state, by id or name, or a type such as "started") | Status (a type brings every status of that kind) |
 | Assignee (a person, or "no assignee") | Assignee; a person nobody was matched to can't come over |
 | Priority | Priority |
-| Labels ("has any of", by label or name) | Labels |
+| Labels (a label, or every label in a group) | Labels. Labels a view needs come over even if no issue uses them yet. |
 | Project (a project, or "no project") | Project |
 | Team (on a workspace view) | Team |
 
-Anything else is left out: "is not", "or" with more than one choice, dates, cycles, creator, text search and so on.
-The view still comes over with the rest of its filters, so it may show more issues than it did in Linear. The check
-step names these views, so you can look them over afterwards. If none of a view's filters can come over, it shows
-every issue (of its team, for a team's view).
+Linear's app saves each filter as a list of choices inside the field (`assignee: { or: [{ id: { in: [...] } }] }`), and
+a label filter also matches the label's sub-labels (`{ or: [{ name: … }, { parent: { name: … } }] }`); both are read.
+
+Anything else is left out: subscribers, "is not", "or" across different fields, dates, cycles, creator, text search
+and so on. The view still comes over with the rest of its filters, so it may not show quite the same issues as in
+Linear. If none of a view's filters can come over, the view stays in Linear instead of arriving as a view that shows
+every issue (and a view an earlier import made for it is removed). The check step names both kinds of views.
 
 `src/features/import/linearFilters.ts` does the filter mapping (tested in `tests/linearImport.test.ts`). If reading
 views from Linear fails, the import goes on without them and says so.
