@@ -3,6 +3,13 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.5.0: Join links made for one person
+*2026-10-09*
+
+- After you invite someone in Settings, you get a join link made just for them, so nobody gets a link without an invitation
+- The link stays next to their name until they join, in case you need to send it again
+- If someone opens their link while signed in to a different GitHub account, Sprawniej tells them and helps them switch
+
 ## 1.4.1: Longer issue numbers fit
 *2026-10-08*
 

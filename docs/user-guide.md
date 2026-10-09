@@ -21,7 +21,9 @@ The first time you open your team's issues, four short tips show you around. You
 ### Inviting someone
 
 Open the menu under your name (bottom left) and choose **Settings and people**. Type their GitHub username and press
-**Invite**, then send them the join link from the same page. (Only the workspace's admins can invite.)
+**Invite**. A join link made just for them appears below: copy it and send it to them. Their link is also next to
+their name in the list until they join. (Only the workspace's admins can invite.) No GitHub account yet? Ask them to
+make one first (it's free), then invite them.
 
 ## Your work saves by itself
 

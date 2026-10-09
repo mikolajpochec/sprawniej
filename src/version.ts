@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '1.4.1'
+export const APP_VERSION = '1.5.0'
 
 export interface Release {
   version: string
@@ -18,6 +18,16 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.5.0',
+    date: '2026-10-09',
+    title: 'Join links made for one person',
+    notes: [
+      'After you invite someone in Settings, you get a join link made just for them, so nobody gets a link without an invitation',
+      'The link stays next to their name until they join, in case you need to send it again',
+      'If someone opens their link while signed in to a different GitHub account, Sprawniej tells them and helps them switch',
+    ],
+  },
   {
     version: '1.4.1',
     date: '2026-10-08',

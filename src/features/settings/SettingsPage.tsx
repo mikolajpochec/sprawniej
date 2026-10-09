@@ -68,6 +68,8 @@ function People() {
   const [login, setLogin] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string>()
+  /** who was just invited, so we can hand over their join link */
+  const [invited, setInvited] = useState<string>()
 
   useEffect(() => {
     if (!repo) return
@@ -79,19 +81,21 @@ function People() {
   }, [token, repo])
 
   if (!repo) return null
-  const link = joinLink(repo, wsName, user?.login)
+  const linkFor = (who: string) => joinLink({ repo, ws: wsName, by: user?.login, for: who })
 
   async function send() {
     const who = login.trim().replace(/^@/, '')
     if (!who || !repo) return
     setBusy(true)
     setProblem(undefined)
+    setInvited(undefined)
     try {
       const r = await invite(token, repo, who)
       setLogin('')
+      setInvited(who)
       if (r === 'member') toast(`@${who} already has access`)
       else {
-        toast(`Invited @${who}`, { description: 'Now send them the join link below.' })
+        toast(`Invited @${who}`, { description: 'Now send them their join link.' })
         listSentInvitations(token, repo).then(setSent, () => {})
       }
     } catch (e) {
@@ -123,19 +127,29 @@ function People() {
             )}
           </li>
         ))}
-        {sent.map((i) => (
-          <li key={i.id} className="flex items-center gap-3 py-1.5 text-muted-foreground">
-            <PersonAvatar login={i.invitee?.login ?? '?'} className="size-8 text-xs opacity-60" />
-            <span>@{i.invitee?.login}</span>
-            <span className="rounded-full border px-2 text-xs leading-5">Invited, hasn't joined yet</span>
-          </li>
-        ))}
+        {sent.map((i) => {
+          const link = i.invitee && linkFor(i.invitee.login)
+          return (
+            <li key={i.id} className="flex items-center gap-3 py-1.5 text-muted-foreground">
+              <PersonAvatar login={i.invitee?.login ?? '?'} className="size-8 text-xs opacity-60" />
+              <span>@{i.invitee?.login}</span>
+              <span className="rounded-full border px-2 text-xs leading-5">Invited, hasn't joined yet</span>
+              {link && (
+                <Button variant="ghost" size="sm" onClick={() => copy(link, 'Link')}>
+                  <Copy /> Copy their join link
+                </Button>
+              )}
+            </li>
+          )
+        })}
       </ul>
 
       {admin ? (
         <div>
           <h3 className="mb-1 font-medium">Invite someone</h3>
-          <p className="mb-3 text-sm text-muted-foreground">Type their GitHub username. No account yet? Send them the join link anyway; it helps them make one, then invite them here.</p>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Type their GitHub username. No account yet? Ask them to make one at github.com (it's free), then invite them here.
+          </p>
           <form
             className="flex max-w-md gap-2"
             onSubmit={(e) => {
@@ -149,30 +163,36 @@ function People() {
             </Button>
           </form>
           <Problem>{problem}</Problem>
+          {invited && <JoinLinkFor login={invited} link={linkFor(invited)} wsName={wsName} />}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Only the workspace's admins can invite people. Ask one of them, then share the join link below.</p>
+        <p className="text-sm text-muted-foreground">Only the workspace's admins can invite people. Ask one of them; they'll get a join link to send.</p>
       )}
+    </div>
+  )
+}
 
-      <div>
-        <h3 className="mb-1 font-medium">Join link</h3>
-        {link ? (
-          <>
-            <p className="mb-3 text-sm text-muted-foreground">Send this to the people you invited. It walks them through getting in, step by step.</p>
-            <div className="flex max-w-2xl gap-2">
-              <Input readOnly value={link} className="h-10 font-mono text-sm" onFocus={(e) => e.target.select()} aria-label="Join link" />
-              <Button variant="outline" size="lg" onClick={() => copy(link, 'Link')}>
-                <Copy /> Copy link
-              </Button>
-            </div>
-            <Button variant="link" className="mt-1 px-0" onClick={() => copy(inviteMessage(link, wsName), 'Message')}>
-              Copy a ready-to-send message instead
+/** shown right after an invite: the link made for that one person */
+function JoinLinkFor({ login, link, wsName }: { login: string; link: string | null; wsName: string }) {
+  return (
+    <div className="mt-6 max-w-2xl rounded-xl border p-4">
+      <h3 className="mb-1 font-medium">Copy the join link for @{login}</h3>
+      {link ? (
+        <>
+          <p className="mb-3 text-sm text-muted-foreground">Send it to them. It walks them through getting in, step by step.</p>
+          <div className="flex gap-2">
+            <Input readOnly value={link} className="h-10 font-mono text-sm" onFocus={(e) => e.target.select()} aria-label={`Join link for @${login}`} />
+            <Button variant="outline" size="lg" onClick={() => copy(link, 'Link')}>
+              <Copy /> Copy link
             </Button>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">Sprawniej is running on this computer only, so there's no link to share. Join links appear here in the published app.</p>
-        )}
-      </div>
+          </div>
+          <Button variant="link" className="mt-1 px-0" onClick={() => copy(inviteMessage(link, wsName), 'Message')}>
+            Copy a ready-to-send message instead
+          </Button>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">Sprawniej is running on this computer only, so there's no link to share. Join links appear here in the published app.</p>
+      )}
     </div>
   )
 }
