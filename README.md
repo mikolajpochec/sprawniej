@@ -2,6 +2,8 @@
 
 Plan and track your team's work: issues, projects and views, kept in a GitHub repo you own.
 
+**Open it: [mikolajpochec.github.io/sprawniej](https://mikolajpochec.github.io/sprawniej/)**
+
 ![A team's issues on the board in Sprawniej](docs/images/board.png)
 
 - **Issues** with statuses and priorities, rich descriptions, sub-issues and comments
