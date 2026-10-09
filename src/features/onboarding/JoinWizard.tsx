@@ -11,7 +11,7 @@ import { useSession } from '@/session'
 import { Button } from '@/ui/button'
 import { KeyStep } from './KeyStep'
 import { Problem, Step } from './Step'
-import { readJoinLink } from './joinLink'
+import { linkIsForSomeoneElse, readJoinLink } from './joinLink'
 
 type Stage = 'welcome' | 'account' | 'signup' | 'key' | 'joining' | 'no-invite' | 'done'
 
@@ -55,6 +55,11 @@ export function JoinWizard() {
   }, [stage, attempt, link])
 
   if (!link) return <Redirect to="/" replace />
+
+  const switchAccount = () => {
+    session.signOut()
+    setStage('account')
+  }
 
   const go = () => {
     session.open(link.repo)
@@ -159,6 +164,32 @@ export function JoinWizard() {
         </Step>
       )
     case 'no-invite':
+      if (linkIsForSomeoneElse(link, session.user?.login))
+        return (
+          <Step
+            step={3}
+            of={4}
+            title="This invitation is for someone else"
+            footer={
+              <>
+                <Button size="lg" onClick={switchAccount}>
+                  Sign in as @{link.for}
+                </Button>
+                <Button variant="ghost" onClick={() => setStage('joining')}>
+                  <RefreshCw /> Try again
+                </Button>
+              </>
+            }
+          >
+            <p>
+              This link was made for <b>@{link.for}</b>, but you're signed in as <b>@{session.user?.login}</b>.
+            </p>
+            <p className="mt-3">
+              If @{link.for} is your other GitHub account, sign in with that one. If not, ask {link.by ? <b>@{link.by}</b> : 'the person who sent you the link'} to
+              invite <b>@{session.user?.login}</b> instead, then press Try again.
+            </p>
+          </Step>
+        )
       return (
         <Step
           step={3}
@@ -169,7 +200,7 @@ export function JoinWizard() {
               <Button size="lg" onClick={() => setStage('joining')}>
                 <RefreshCw /> Try again
               </Button>
-              <Button variant="ghost" onClick={() => session.signOut()}>
+              <Button variant="ghost" onClick={switchAccount}>
                 Use a different GitHub account
               </Button>
             </>

@@ -38,8 +38,12 @@ GitHub repo (for example acme/sprawniej-data) = the workspace
 ### Joining a workspace (teammates)
 
 The owner invites someone by GitHub username from Settings. The app adds them as a collaborator
-(`PUT /repos/{owner}/{repo}/collaborators/{user}`) and gives back a join link (`#/join/<owner>/<repo>`) with a
-ready-to-send message. The link opens a wizard with one step per screen:
+(`PUT /repos/{owner}/{repo}/collaborators/{user}`) and gives back a join link made for that person
+(`#/join/<owner>/<repo>?ws=<name>&by=<inviter>&for=<invitee>`) with a ready-to-send message. Settings only shows
+a link after an invite, so nobody gets a link without an invitation behind it. If the person signs in with a
+different account than the one invited, the wizard says so instead of "no invitation found".
+
+The link opens a wizard with one step per screen:
 
 1. **Welcome**: what Sprawniej is, in one sentence, with the team's pictures.
 2. **GitHub account**: "I have one" or "Create one" (opens github.com/signup).
@@ -51,7 +55,7 @@ ready-to-send message. The link opens a wizard with one step per screen:
 5. **That's you!**: your GitHub picture and name, and "Let's go".
 
 Join links use the app's public address: `VITE_PUBLIC_URL` at build time, or else the address the app is served
-from (`src/config.ts`). On localhost there is no link to share, so Settings doesn't show one.
+from (`src/config.ts`). On localhost there is no link to share, so Settings says so after an invite instead of showing one.
 
 A short tour follows the first visit. The owner's own setup (creating the workspace repo) is a separate, guided path.
 
