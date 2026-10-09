@@ -4,9 +4,8 @@ Sprawniej is a web page and nothing else. There is no server of ours. The data l
 the team picks: each issue, comment, view and project is a small file there. The page keeps a copy of that repo in
 the browser, changes files when you work, and sends the changes to GitHub on its own.
 
-This is the same idea as [peeponote](https://github.com/mikolajpochec/peeponote), our canvas app. Unlike peeponote we
-don't run git in the browser: we only ever talk to GitHub, so we use GitHub's API directly. That needs fewer requests
-and no special tricks.
+We don't run git in the browser: we only ever talk to GitHub, so we use GitHub's API directly. That needs fewer
+requests and no special tricks.
 
 ## The big picture
 
