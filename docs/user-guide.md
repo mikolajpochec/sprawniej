@@ -183,6 +183,9 @@ follows it, and you can add or remove teammates there too.
 
 Every list of issues can be shown two ways. Switch with **List / Board** at the top right.
 
+**My issues** (in the sidebar) shows everything assigned to you, in every status, finished ones included. To hide
+the finished ones, open **Display** and turn off **Show finished issues**.
+
 - **List:** rows grouped by status. Sub-issues sit just under their parent.
 - **Board:** a column per status, with cards. Empty columns wait under **Hidden columns** on the right, together
   with statuses the tab leaves out (like **Done** on the Active tab). Drop a card on one to move the issue there; the
