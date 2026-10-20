@@ -3,6 +3,11 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.10.1: Everything in My issues
+*2026-10-20*
+
+- My issues shows your issues in every status, finished ones included, so none go missing. Display › Show finished issues hides them again
+
 ## 1.10.0: Team workflows
 *2026-10-19*
 
