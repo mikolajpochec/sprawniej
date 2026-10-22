@@ -25,9 +25,10 @@ import { Input } from '@/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { ImportPage } from '@/features/import/ImportPage'
 import { cn } from '@/lib/utils'
-import { squarePicture } from '@/lib/picture'
+import { squarePicture, type Area } from '@/lib/picture'
 import { LabelsSettings } from './LabelsSettings'
 import { StatusesSettings } from './StatusesSettings'
+import { CropPicture } from './CropPicture'
 import { LinkPersonDialog } from './LinkPersonDialog'
 import { useUnlinked, workOf } from './unlinked'
 
@@ -274,69 +275,66 @@ function JoinLinkFor({ login, link, wsName }: { login: string; link: string | nu
 }
 
 /** your name as teammates see it; GitHub's until you type your own */
-function MyName({ me, github }: { me: Person; github: string }) {
+function MyName({ me }: { me: Person }) {
   const [draft, setDraft] = useState(me.name)
-  const commit = () => {
-    renameMe(draft)
-    if (!draft.trim()) setDraft(github)
-  }
   return (
-    <div className="min-w-0 flex-1">
-      <Input
-        aria-label="Your name"
-        className="h-10 max-w-sm font-semibold"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-      />
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        @{me.login} · How teammates see you here: your name and picture. Your GitHub profile stays as it is.
-        {me.nameSetHere && github !== me.login && github !== me.name && (
-          <Button variant="link" className="h-auto px-1 py-0 text-sm" onClick={() => renameMe('')}>
-            Use your GitHub name ({github})
-          </Button>
-        )}
-      </p>
-    </div>
+    <Input
+      aria-label="Your name"
+      className="h-10 max-w-sm font-semibold"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        renameMe(draft)
+        if (!draft.trim()) setDraft(me.name)
+      }}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
   )
 }
 
-/** your picture: one of your own for everyone to see, or back to your GitHub one */
+/** your picture: one of your own for everyone to see (cropped first), or back to your GitHub one */
 function MyPicture({ me }: { me: Person }) {
   const input = useRef<HTMLInputElement>(null)
+  const [file, setFile] = useState<{ blob: File; url: string }>()
   const [busy, setBusy] = useState(false)
-  const pick = async (file: File | undefined) => {
+  const close = () => {
+    setFile(undefined)
+    if (input.current) input.current.value = ''
+  }
+  const pick = (blob: File | undefined) => {
+    if (!blob) return
+    const reader = new FileReader()
+    reader.onload = () => setFile({ blob, url: String(reader.result) })
+    reader.onerror = () => toast('Sprawniej couldn’t open this picture. Try another one.')
+    reader.readAsDataURL(blob)
+  }
+  const use = async (area: Area) => {
     if (!file) return
     setBusy(true)
     try {
-      await setMyAvatar(await squarePicture(file))
+      await setMyAvatar(await squarePicture(file.blob, area))
+      close()
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Sprawniej couldn’t use this picture.')
     } finally {
       setBusy(false)
-      if (input.current) input.current.value = ''
     }
   }
   return (
     <div className="flex shrink-0 flex-col items-center gap-1">
-      <button type="button" className="relative rounded-full" onClick={() => input.current?.click()} aria-label="Change your picture" disabled={busy}>
+      <button type="button" className="rounded-full" onClick={() => input.current?.click()} aria-label="Change your picture">
         <PersonAvatar person={me} className="size-16 text-lg" />
-        {busy && (
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/60">
-            <Loader2 className="size-5 animate-spin" />
-          </span>
-        )}
       </button>
-      <input ref={input} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
-      <Button variant="link" className="h-auto px-0 py-0 text-sm" disabled={busy} onClick={() => input.current?.click()}>
+      <input ref={input} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      <Button variant="link" className="h-auto px-0 py-0 text-sm" onClick={() => input.current?.click()}>
         Change
       </Button>
       {me.avatar && (
-        <Button variant="link" className="h-auto px-0 py-0 text-sm text-muted-foreground" disabled={busy} onClick={() => void setMyAvatar(null)}>
+        <Button variant="link" className="h-auto px-0 py-0 text-sm text-muted-foreground" onClick={() => void setMyAvatar(null)}>
           Remove
         </Button>
       )}
+      {file && <CropPicture image={file.url} busy={busy} onUse={(area) => void use(area)} onClose={close} />}
     </div>
   )
 }
@@ -346,14 +344,27 @@ function Account() {
   const mine = useData((s) => (user ? s.people[user.login] : undefined))
   const { signOut, busy, dialog } = useSignOut()
   const me = mine ?? user
+  const github = user?.name ?? me?.login ?? ''
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-start gap-4">
-        {me && <MyPicture me={me} />}
-        {/* remount when the name changes elsewhere (another tab, "Use your GitHub name") */}
-        {me && <MyName key={me.name} me={me} github={user?.name ?? me.login} />}
-      </div>
+      {me && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start gap-4">
+            <MyPicture me={me} />
+            {/* remount when the name changes elsewhere (another tab, "Use your GitHub name") */}
+            <MyName key={me.name} me={me} />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            @{me.login} · How teammates see you here: your name and picture. Your GitHub profile stays as it is.
+            {me.nameSetHere && github !== me.login && github !== me.name && (
+              <Button variant="link" className="h-auto px-1 py-0 text-sm" onClick={() => renameMe('')}>
+                Use your GitHub name ({github})
+              </Button>
+            )}
+          </p>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="lg" onClick={() => void switchWorkspace()}>
           <Repeat /> Switch workspace

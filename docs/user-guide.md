@@ -23,7 +23,8 @@ The first time you open your team's issues, four short tips show you around. You
 Teammates see the name and picture from your GitHub profile. To go by another name here, open **Settings › Profile**
 and type it; it saves by itself. **Use your GitHub name** puts the GitHub one back.
 
-To use another picture, click yours on the same page (or **Change**) and pick one. Everyone in the workspace sees it.
+To use another picture, click yours on the same page (or **Change**) and pick one. Drag it to place it in the circle,
+zoom to fit, and press **Use this picture**. Everyone in the workspace sees it.
 **Remove** goes back to your GitHub picture. Your GitHub profile stays as it is either way.
 
 ### Settings

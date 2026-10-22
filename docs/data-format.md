@@ -56,7 +56,7 @@ rest. A name the file already has stays when GitHub has none.
 doesn't replace it.
 
 `avatar` (optional): a picture they picked in Sprawniej (Settings › Profile), as `/assets/<hash>.<ext>` (a small
-square, usually WebP). Shown instead of `avatarUrl`, which stays their GitHub picture and keeps updating. Removing the
+square, usually WebP, cut out where they chose). Shown instead of `avatarUrl`, which stays their GitHub picture and keeps updating. Removing the
 picture removes the field; the file stays in `assets/`. Versions before 1.11.0 don't know it: they keep it when they
 rewrite the file and show the GitHub picture.
 
