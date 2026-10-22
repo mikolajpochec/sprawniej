@@ -3,6 +3,11 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.11.1: Crop your picture
+*2026-10-22*
+
+- After picking a new picture in Settings › Profile, drag and zoom it to choose what shows in the circle
+
 ## 1.11.0: Your own picture
 *2026-10-22*
 
