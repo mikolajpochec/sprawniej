@@ -3,6 +3,11 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.11.0: List or board, your choice
+*2026-10-22*
+
+- Switching a view between List and Board changes it only for you, on this device. Your teammates keep their own pick
+
 ## 1.10.1: Everything in My issues
 *2026-10-20*
 

@@ -239,7 +239,8 @@ each category it has.
 }
 ```
 
-`team: null` makes a workspace view. Filters left out match everything. Filters: `statuses`, `assignees` (`null` =
+`team: null` makes a workspace view. `display.layout` is only where the view starts: switching List / Board is kept in
+each person's browser and never written back. Filters left out match everything. Filters: `statuses`, `assignees` (`null` =
 no one), `subscribers` (people following the issue), `priorities`, `labels`, `projects` (`null` = none), `teams`. Inside one filter any value matches;
 different filters must all match. A status of the workspace's own goes in `customStatuses` as `{ id, as, added }`,
 with its stand-in `as` in `statuses` (`added: true` when the stand-in is there only for it). `grouping`: `status`, `assignee`, `priority`, `project`, `none`.

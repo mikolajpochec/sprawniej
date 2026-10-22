@@ -181,7 +181,8 @@ follows it, and you can add or remove teammates there too.
 
 ## Lists and boards
 
-Every list of issues can be shown two ways. Switch with **List / Board** at the top right.
+Every list of issues can be shown two ways. Switch with **List / Board** at the top right. Your pick is just for
+you and stays on this device.
 
 **My issues** (in the sidebar) shows everything assigned to you, in every status, finished ones included. To hide
 the finished ones, open **Display** and turn off **Show finished issues**.
@@ -260,8 +261,8 @@ them, press **Save as view**.
 A **view** is a saved set of filters with its own emoji, like "🐞 Open bugs" or "📊 Insights". Open **Views** in the
 sidebar to see them, and **New view** to make one. A view shows issues from the whole workspace or from one team.
 
-A view belongs to everyone. Changing its name, emoji, description, filters, grouping or List / Board saves straight
-away, for everyone. In the list of views, click a view's emoji to change it, or use **⋯** to rename or delete it. On
+A view belongs to everyone. Changing its name, emoji, description, filters or grouping saves straight away, for
+everyone. List / Board is your own choice: switching it changes the view only for you, on this device. In the list of views, click a view's emoji to change it, or use **⋯** to rename or delete it. On
 the view's own page, click its name or description to change them. Deleting a view leaves its issues as they are.
 
 ## Projects
