@@ -5,7 +5,7 @@
  * Numbering (see CLAUDE.md): MAJOR.MINOR.PATCH. Major = the repo format or the way you work changes,
  * minor = a new feature, patch = fixes and polish. Notes are written for the people using Sprawniej.
  */
-export const APP_VERSION = '1.10.1'
+export const APP_VERSION = '1.11.0'
 
 export interface Release {
   version: string
@@ -18,6 +18,16 @@ export interface Release {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.11.0',
+    date: '2026-10-22',
+    title: 'Your own picture',
+    notes: [
+      'Pick your own picture in Settings › Profile. Everyone in the workspace sees it; Remove goes back to your GitHub picture',
+      'Switching a view between List and Board changes it only for you, on this device. Your teammates keep their own pick',
+      'After an update, a short note tells you, with a link to what’s changed',
+    ],
+  },
   {
     version: '1.10.1',
     date: '2026-10-20',

@@ -55,6 +55,11 @@ rest. A name the file already has stays when GitHub has none.
 `nameSetHere` (optional): they typed their name in Sprawniej (Settings › Your account), so their GitHub name
 doesn't replace it.
 
+`avatar` (optional): a picture they picked in Sprawniej (Settings › Profile), as `/assets/<hash>.<ext>` (a small
+square, usually WebP). Shown instead of `avatarUrl`, which stays their GitHub picture and keeps updating. Removing the
+picture removes the field; the file stays in `assets/`. Versions before 1.11.0 don't know it: they keep it when they
+rewrite the file and show the GitHub picture.
+
 `linearIds` (optional): the Linear people this account was linked to, so a later import matches them by itself.
 
 Someone the Linear import brought who isn't in the workspace yet has a login starting with `~`, which no GitHub
@@ -239,7 +244,8 @@ each category it has.
 }
 ```
 
-`team: null` makes a workspace view. Filters left out match everything. Filters: `statuses`, `assignees` (`null` =
+`team: null` makes a workspace view. `display.layout` is only where the view starts: switching List / Board is kept in
+each person's browser and never written back. Filters left out match everything. Filters: `statuses`, `assignees` (`null` =
 no one), `subscribers` (people following the issue), `priorities`, `labels`, `projects` (`null` = none), `teams`. Inside one filter any value matches;
 different filters must all match. A status of the workspace's own goes in `customStatuses` as `{ id, as, added }`,
 with its stand-in `as` in `statuses` (`added: true` when the stand-in is there only for it). `grouping`: `status`, `assignee`, `priority`, `project`, `none`.

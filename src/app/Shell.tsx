@@ -15,18 +15,21 @@ import { useChrome } from './chrome'
 import { useShortcuts } from './shortcuts'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import { announceUpdate } from './updated'
 
 export function Shell({ children }: { children: ReactNode }) {
   const open = useChrome((s) => s.sidebarOpen)
   const menuOpen = useChrome((s) => s.menuOpen)
   const narrow = useNarrow()
-  const [location] = useLocation()
+  const [location, go] = useLocation()
   useShortcuts()
   // a phone's menu closes once you've picked where to go
   useEffect(() => {
     useChrome.setState({ menuOpen: false })
     clearSelection()
   }, [location])
+  // once per new version: tell what changed
+  useEffect(() => announceUpdate(go), [go])
   // fetch the editor while you look around, so the first issue you open is ready at once
   useEffect(() => {
     const t = setTimeout(preloadEditor, 1500)
