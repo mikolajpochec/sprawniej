@@ -2,7 +2,7 @@
  * Settings: a few pages behind a menu. Your account; and for the workspace: its name, the people in it (and inviting
  * more), labels, statuses, the archive and the Linear import.
  */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Archive, CircleDot, CircleUser, Copy, Download, ExternalLink, Link2, Loader2, LogOut, Repeat, Search, SlidersHorizontal, Tag, UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link, useParams } from 'wouter'
@@ -13,7 +13,7 @@ import { useSignOut } from '@/components/SignOut'
 import { PersonAvatar } from '@/components/Avatar'
 import { PagedList } from '@/components/PagedList'
 import { fuzzy } from '@/lib/fuzzy'
-import { renameMe, renameWorkspace, setAutoArchive } from '@/data/actions'
+import { renameMe, renameWorkspace, setAutoArchive, setMyAvatar } from '@/data/actions'
 import { AUTO_ARCHIVE_MONTHS, isGuest, type Person } from '@/model/schema'
 import { useData } from '@/data/store'
 import { inviteMessage, joinLink } from '@/features/onboarding/joinLink'
@@ -25,6 +25,7 @@ import { Input } from '@/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { ImportPage } from '@/features/import/ImportPage'
 import { cn } from '@/lib/utils'
+import { squarePicture } from '@/lib/picture'
 import { LabelsSettings } from './LabelsSettings'
 import { StatusesSettings } from './StatusesSettings'
 import { LinkPersonDialog } from './LinkPersonDialog'
@@ -290,13 +291,52 @@ function MyName({ me, github }: { me: Person; github: string }) {
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       />
       <p className="mt-1.5 text-sm text-muted-foreground">
-        @{me.login} · How teammates see you here. Your GitHub profile stays as it is.
+        @{me.login} · How teammates see you here: your name and picture. Your GitHub profile stays as it is.
         {me.nameSetHere && github !== me.login && github !== me.name && (
           <Button variant="link" className="h-auto px-1 py-0 text-sm" onClick={() => renameMe('')}>
             Use your GitHub name ({github})
           </Button>
         )}
       </p>
+    </div>
+  )
+}
+
+/** your picture: one of your own for everyone to see, or back to your GitHub one */
+function MyPicture({ me }: { me: Person }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const pick = async (file: File | undefined) => {
+    if (!file) return
+    setBusy(true)
+    try {
+      await setMyAvatar(await squarePicture(file))
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Sprawniej couldn’t use this picture.')
+    } finally {
+      setBusy(false)
+      if (input.current) input.current.value = ''
+    }
+  }
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-1">
+      <button type="button" className="relative rounded-full" onClick={() => input.current?.click()} aria-label="Change your picture" disabled={busy}>
+        <PersonAvatar person={me} className="size-16 text-lg" />
+        {busy && (
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/60">
+            <Loader2 className="size-5 animate-spin" />
+          </span>
+        )}
+      </button>
+      <input ref={input} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
+      <Button variant="link" className="h-auto px-0 py-0 text-sm" disabled={busy} onClick={() => input.current?.click()}>
+        Change
+      </Button>
+      {me.avatar && (
+        <Button variant="link" className="h-auto px-0 py-0 text-sm text-muted-foreground" disabled={busy} onClick={() => void setMyAvatar(null)}>
+          Remove
+        </Button>
+      )}
     </div>
   )
 }
@@ -310,7 +350,7 @@ function Account() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-start gap-4">
-        <PersonAvatar person={me ?? undefined} className="size-12 text-base" />
+        {me && <MyPicture me={me} />}
         {/* remount when the name changes elsewhere (another tab, "Use your GitHub name") */}
         {me && <MyName key={me.name} me={me} github={user?.name ?? me.login} />}
       </div>
@@ -384,7 +424,7 @@ function General() {
 }
 
 const PAGES: SettingsPageDef[] = [
-  { id: 'account', group: 'Your account', title: 'Account', icon: <CircleUser />, body: () => <Account /> },
+  { id: 'account', group: 'Your account', title: 'Profile', icon: <CircleUser />, body: () => <Account /> },
   { id: 'workspace', group: 'Workspace', title: 'General', icon: <SlidersHorizontal />, description: 'The workspace’s name, and where it is stored.', body: () => <General /> },
   { id: 'people', group: 'Workspace', title: 'People', icon: <Users />, description: 'Everyone here can see and change every issue in the workspace.', body: () => <People /> },
   { id: 'labels', group: 'Workspace', title: 'Labels', icon: <Tag />, description: 'Labels sort issues across teams. Renaming or recolouring one changes it on every issue.', body: () => <LabelsSettings /> },

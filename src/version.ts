@@ -21,8 +21,12 @@ export const CHANGELOG: Release[] = [
   {
     version: '1.11.0',
     date: '2026-10-22',
-    title: 'List or board, your choice',
-    notes: ['Switching a view between List and Board changes it only for you, on this device. Your teammates keep their own pick'],
+    title: 'Your own picture',
+    notes: [
+      'Pick your own picture in Settings › Profile. Everyone in the workspace sees it; Remove goes back to your GitHub picture',
+      'Switching a view between List and Board changes it only for you, on this device. Your teammates keep their own pick',
+      'After an update, a short note tells you, with a link to what’s changed',
+    ],
   },
   {
     version: '1.10.1',

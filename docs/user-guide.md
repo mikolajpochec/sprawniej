@@ -18,16 +18,18 @@ You only do this once per browser. The join link also accepts the GitHub invitat
 The first time you open your team's issues, four short tips show you around. You can see them again from the
 **Help** page (**Show the tour again**).
 
-### Your name
+### Your name and picture
 
-Teammates see the name from your GitHub profile. To go by another one here, open **Settings › Account** and
-type it; it saves by itself. Your GitHub profile stays as it is. **Use your GitHub name**
-puts the GitHub one back.
+Teammates see the name and picture from your GitHub profile. To go by another name here, open **Settings › Profile**
+and type it; it saves by itself. **Use your GitHub name** puts the GitHub one back.
+
+To use another picture, click yours on the same page (or **Change**) and pick one. Everyone in the workspace sees it.
+**Remove** goes back to your GitHub picture. Your GitHub profile stays as it is either way.
 
 ### Settings
 
 **Settings** (the menu under your name, bottom left, or `⌘K`) has a page for each part, in the menu on its left:
-**Account** (your name, switching workspace, signing out) and, for the workspace, **General** (its name),
+**Profile** (your name and picture, switching workspace, signing out) and, for the workspace, **General** (its name),
 **People**, **Labels**, **Statuses**, **Archive** and **Import from Linear**. On a phone, Settings shows that menu
 first.
 
@@ -61,7 +63,8 @@ When a new version of Sprawniej is out, a small note says so, and **Update avail
 to **Saved**. Nothing changes until you choose: press it when it suits you (whatever isn't saved yet is saved first,
 then the page reloads), or just carry on, and the new version loads the next time you open Sprawniej.
 
-To see what changed, open the menu under your name and choose **What's new**: every version, newest first.
+The first time you open the new version, a short note says so; **What's changed?** in it shows what's new. To see
+it later, open the menu under your name and choose **What's new**: every version, newest first.
 
 ## Issues
 

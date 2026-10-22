@@ -3,10 +3,12 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
-## 1.11.0: List or board, your choice
+## 1.11.0: Your own picture
 *2026-10-22*
 
+- Pick your own picture in Settings › Profile. Everyone in the workspace sees it; Remove goes back to your GitHub picture
 - Switching a view between List and Board changes it only for you, on this device. Your teammates keep their own pick
+- After an update, a short note tells you, with a link to what’s changed
 
 ## 1.10.1: Everything in My issues
 *2026-10-20*

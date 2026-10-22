@@ -47,7 +47,7 @@ function Palette() {
       { id: 'projects', label: 'Projects', icon: <Box />, run: go('/projects') },
       { id: 'views', label: 'Views', icon: <Layers />, run: go('/views') },
       { id: 'settings', label: 'Settings', icon: <Settings />, run: go('/settings') },
-      { id: 'settings-account', label: 'Your account', words: 'settings name sign out', icon: <Settings />, run: go('/settings/account') },
+      { id: 'settings-account', label: 'Your profile', words: 'settings account name picture avatar photo sign out', icon: <Settings />, run: go('/settings/account') },
       { id: 'settings-people', label: 'People', words: 'settings invite teammates', icon: <Settings />, run: go('/settings/people') },
       { id: 'settings-labels', label: 'Labels', words: 'settings', icon: <Settings />, run: go('/settings/labels') },
       { id: 'settings-statuses', label: 'Statuses', words: 'settings workflow', icon: <Settings />, run: go('/settings/statuses') },

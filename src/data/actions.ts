@@ -1150,18 +1150,44 @@ export async function importFiles(files: Map<string, string | null>, message: st
 const IMAGE_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }
 export const MAX_IMAGE_MB = 10
 
-/** Keep a pasted or dropped picture in the workspace. Returns the address to put in the Markdown. */
-export async function addImage(file: Blob): Promise<string> {
+/** a picture as a file in `assets/` (none when the workspace has it already) */
+async function imageFiles(file: Blob): Promise<{ path: string; files: Map<string, string | null> }> {
   const ext = IMAGE_TYPES[file.type]
   if (!ext) throw new Error('Only PNG, JPEG, GIF and WebP pictures can be added.')
   if (file.size > MAX_IMAGE_MB * 1024 * 1024) throw new Error(`This picture is too big. Pictures can be up to ${MAX_IMAGE_MB} MB.`)
   const bytes = new Uint8Array(await file.arrayBuffer())
   const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 24)
   const path = `assets/${hash}.${ext}`
+  const files = new Map<string, string | null>()
   if (!workspace()?.read(path)) {
     let binary = ''
     for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-    save(one(path, BINARY_PREFIX + btoa(binary)), 'Add a picture')
+    files.set(path, BINARY_PREFIX + btoa(binary))
   }
+  return { path, files }
+}
+
+/** Keep a pasted or dropped picture in the workspace. Returns the address to put in the Markdown. */
+export async function addImage(file: Blob): Promise<string> {
+  const { path, files } = await imageFiles(file)
+  if (files.size) save(files, 'Add a picture')
   return `/${path}`
+}
+
+/**
+ * Your own picture, shown to everyone instead of your GitHub one (`picture` already made small and square), or
+ * none to go back to the GitHub one. The old picture stays in `assets/`, like every picture once added.
+ */
+export async function setMyAvatar(picture: Blob | null) {
+  const s = useData.getState()
+  if (!s.me) return
+  const mine = s.people[s.me.login] ?? s.me
+  const { avatar: _was, ...rest } = mine
+  if (!picture) {
+    if (mine.avatar) save(one(paths.person(s.me.login), jsonToFile(rest)), `${mine.name} uses their GitHub picture`)
+    return
+  }
+  const { path, files } = await imageFiles(picture)
+  files.set(paths.person(s.me.login), jsonToFile({ ...rest, avatar: `/${path}` }))
+  save(files, `${mine.name} has a new picture`)
 }
