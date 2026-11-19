@@ -15,7 +15,6 @@ export function MyIssuesPage() {
       filters={{ assignees: [me?.login ?? ''] }}
       hideFilters={['assignees']}
       viewScope={null}
-      baseDisplay={{ showCompleted: false }}
       empty={
         <EmptyState
           icon={<CircleUser />}

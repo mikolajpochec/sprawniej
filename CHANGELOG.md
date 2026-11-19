@@ -3,6 +3,23 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.11.1: Crop your picture
+*2026-10-22*
+
+- After picking a new picture in Settings › Profile, drag and zoom it to choose what shows in the circle
+
+## 1.11.0: Your own picture
+*2026-10-22*
+
+- Pick your own picture in Settings › Profile. Everyone in the workspace sees it; Remove goes back to your GitHub picture
+- Switching a view between List and Board changes it only for you, on this device. Your teammates keep their own pick
+- After an update, a short note tells you, with a link to what’s changed
+
+## 1.10.1: Everything in My issues
+*2026-10-20*
+
+- My issues shows your issues in every status, finished ones included, so none go missing. Display › Show finished issues hides them again
+
 ## 1.10.0: Team workflows
 *2026-10-19*
 

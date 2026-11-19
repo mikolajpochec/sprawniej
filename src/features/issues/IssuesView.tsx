@@ -44,8 +44,11 @@ interface Props {
 }
 
 export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, header, empty, hideFilters, saved, viewScope }: Props) {
-  const mine = useDisplay(page, baseDisplay)
-  const display = saved?.display ?? mine.display
+  const mine = useDisplay(page, saved?.display ?? baseDisplay)
+  // List or Board is each person's own choice, kept in this browser; a view's layout is only where it starts
+  const layout = mine.display.layout
+  const viewDisplay = saved?.display
+  const display = useMemo(() => (viewDisplay ? { ...viewDisplay, layout } : mine.display), [viewDisplay, layout, mine.display])
   const setDisplay = saved?.onDisplay ?? mine.setDisplay
   const [ownFilters, setOwnFilters] = useState<Filters>({})
   const extra = saved?.filters ?? ownFilters
@@ -103,7 +106,7 @@ export function IssuesView({ page, filters, tab = 'all', baseDisplay, left, head
         tour="layout"
         label="Layout"
         value={display.layout}
-        onChange={(layout) => setDisplay({ layout })}
+        onChange={(layout) => mine.setDisplay({ layout })}
         options={[
           { value: 'list', name: 'List', label: <><List /> <span className="hidden sm:inline">List</span></> },
           { value: 'board', name: 'Board', label: <><Columns3 /> <span className="hidden sm:inline">Board</span></> },
