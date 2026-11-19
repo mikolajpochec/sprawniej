@@ -3,7 +3,7 @@
  * active filter shows as a chip you can change or remove. Inside one filter, any chosen value matches
  * (Todo or In Progress); different filters must all match (Todo and assigned to Ana).
  */
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useRef, type ReactNode } from 'react'
 import { Bell, Box, CircleDot, ListFilter, SignalHigh, Tag, UserRound, Users, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { Picker, type PickerItem } from '@/components/Picker'
@@ -55,8 +55,12 @@ interface Props {
 }
 
 export function FilterButton({ hide = [], onPick }: { hide?: FilterKey[]; onPick: (key: FilterKey) => void }) {
+  // once a filter is picked, this menu is still on screen for a moment while it fades out. A mouse moving over or
+  // off it then would pull focus back into it, and the filter's own menu, which just opened, would close
+  const picked = useRef(false)
+  const stayStill = (e: { preventDefault: () => void }) => picked.current && e.preventDefault()
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(o) => o && (picked.current = false)}>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="h-10 gap-2 text-[15px]" aria-label="Filter">
           <ListFilter /> <span className="hidden sm:inline">Filter</span>
@@ -65,7 +69,16 @@ export function FilterButton({ hide = [], onPick }: { hide?: FilterKey[]; onPick
       {/* focus goes to the filter's own menu next, not back to this button */}
       <DropdownMenuContent align="end" className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
         {KINDS.filter((k) => !hide.includes(k.key)).map((k) => (
-          <DropdownMenuItem key={k.key} onSelect={() => setTimeout(() => onPick(k.key))} className="[&_svg]:text-muted-foreground">
+          <DropdownMenuItem
+            key={k.key}
+            onSelect={() => {
+              picked.current = true
+              setTimeout(() => onPick(k.key))
+            }}
+            onPointerMove={stayStill}
+            onPointerLeave={stayStill}
+            className="[&_svg]:text-muted-foreground"
+          >
             {k.icon} {k.name}
           </DropdownMenuItem>
         ))}

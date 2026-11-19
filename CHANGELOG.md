@@ -3,6 +3,11 @@
 Versions are `MAJOR.MINOR.PATCH`: major = the repo format or the way you work changes, minor = a new feature,
 patch = fixes and polish. Written from `src/version.ts` by `bun scripts/changelog.ts`.
 
+## 1.11.2: Filters stay open
+*2026-11-19*
+
+- Picking a filter right after opening Filter no longer closes it at once. You can start typing straight away
+
 ## 1.11.1: Crop your picture
 *2026-10-22*
 
